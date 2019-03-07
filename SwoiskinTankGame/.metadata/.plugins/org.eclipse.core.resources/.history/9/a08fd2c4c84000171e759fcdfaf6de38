@@ -1,0 +1,11 @@
+package TankGame;
+
+public class FastBullet
+{
+
+	public static void main(String[] args)
+	{
+
+	}
+
+}

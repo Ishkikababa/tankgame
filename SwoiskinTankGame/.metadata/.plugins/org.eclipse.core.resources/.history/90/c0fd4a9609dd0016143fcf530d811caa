@@ -1,0 +1,27 @@
+import gpdraw.DrawingTool;
+import gpdraw.SketchPad;
+
+public class Triangle
+{
+	SketchPad pad = new SketchPad(500, 500);
+	DrawingTool pen = new DrawingTool(pad);
+	
+	public Triangle()
+	{
+		pen.up();
+		pen.move(0, 0);
+		pen.down();
+	}
+	
+	public void drawT(int level, int length)
+	{
+		if (level > 0)
+		{
+			pen.forward(length/2);
+			if (level%2)
+			pen.turn(120);
+			drawT(level-1, length/2);
+			
+		}
+	}
+}

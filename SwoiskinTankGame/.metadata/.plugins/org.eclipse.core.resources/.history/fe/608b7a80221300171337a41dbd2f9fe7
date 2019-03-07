@@ -1,0 +1,671 @@
+package TankGame;
+
+//disable under spawnPowerup()
+
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+import java.lang.Math;
+import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
+import java.util.concurrent.TimeUnit;
+
+public class Game extends KeyAdapter implements GlobalConst, ActionListener
+{
+	private JFrame gameFrame;
+	private GamePanel battlePanel;
+	private Timer timer;
+	
+	private boolean pressedLeft = false, pressedRight = false, pressedUp = false, pressedDown = false, 
+						 pressedA = false, pressedD = false, pressedW = false, pressedS = false,
+						 pressedSpace = false, pressedZero = false,
+				       redFired = false, greenFired = false,
+				       paused = false;
+	
+	private boolean controlKeyPressed = false;
+
+	public static void main(String[] args)
+	{
+		new Game();
+	}
+
+	// Constructor
+	public Game()
+	{
+		gameFrame = new JFrame();
+		battlePanel = new GamePanel();
+		gameFrame.getContentPane().add(battlePanel);
+
+		gameFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		gameFrame.setSize(vars.fieldWidth + 16, vars.fieldHeight + 16); // 16 for weird jframe buffer
+		gameFrame.setTitle("Definitely Not Tank Trouble");
+		gameFrame.setLocationRelativeTo(null);
+		//gameFrame.setResizable(false);
+		gameFrame.setFocusable(true);
+		
+		gameFrame.getContentPane().setBackground(Color.WHITE);
+
+		// Set up before, changed to tanks
+		//setUpShooter();
+		//setUpAliens();
+		
+		reset();
+		vars.redScore = vars.greenScore = 0;
+		
+		gameFrame.addKeyListener(this);
+		gameFrame.setVisible(true);
+
+		// Set (and start) a new Swing Timer to fire every 'TIMER_SPEED' milliseconds,
+		//  after an initial delay of 'TIMER_DELAY' milliseconds; this Timer, along
+		//  with the distance (number of pixels) that the aliens, missiles, and shooter
+		//  move with each cycle, controls how fast the objects move on the playing
+		//  field; note that if adding a "pause/unpause" feature to this game, the
+		//  value of the 'TIMER_DELAY' constant should probably be set to zero
+		timer = new Timer(TIMER_SPEED, this);
+		timer.setInitialDelay(TIMER_DELAY);
+		timer.start();
+	}
+
+	public void reset()
+	{
+		makeMaze();
+		setUpTanks();
+		resetNumbers();
+		resetPowerups();
+	}
+	
+	// http://weblog.jamisbuck.org/2011/1/3/maze-generation-kruskal-s-algorithm
+	public void makeMaze()
+	{
+		walls.clear();
+		ArrayList<Wall> tempWalls = new ArrayList<Wall>();
+		
+		vars.fieldWidth = 300 + 100*rand(0, 6);
+		vars.fieldHeight = 300 + 100*rand(0, 6);
+		
+		Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+		gameFrame.setSize(vars.fieldWidth + 16, vars.fieldHeight + 36);
+		gameFrame.setLocation((int)screenSize.getWidth()/2 - vars.fieldWidth/2,(int) screenSize.getHeight()/2 - vars.fieldHeight/2);
+		
+		int w = vars.fieldWidth/NODE_LENGTH;
+		int h = vars.fieldHeight/NODE_LENGTH;
+		int[][] nodes = new int[w][h];
+		
+		boolean[][] vwalls = new boolean[w][h];
+		boolean[][] hwalls = new boolean[w][h];
+		
+		int index = 0;
+		for (int i=0;i<w;i++)
+		{
+			for (int j=0;j<h;j++)
+			{
+				//make a temp wall everywhere in between nodes in an array
+				vwalls[i][j] = true;
+				hwalls[i][j] = true;
+				nodes[i][j] = index;
+				index++;
+			}
+		}
+		
+		while(!mazeDone(nodes))
+		{
+			int rx = (int)(Math.random()*(w));
+			int ry = (int)(Math.random()*(h));
+			int rd = (int)(Math.random()*4); // random direction (n,s,e,w) to compare to
+
+			try
+			{
+				int a = nodes[rx][ry], b = -1;
+				switch(rd)
+				{
+					case 0:
+						b = nodes[rx][ry + 1];
+						break;
+					case 1:
+						b = nodes[rx][ry - 1];
+						break;
+					case 2:
+						b = nodes[rx + 1][ry];
+						break;
+					case 3:
+						b = nodes[rx - 1][ry];
+						break;
+				}
+				
+				if (a != b)
+				{
+					
+					if (rd == 0)
+						hwalls[rx][ry+1] = false;					
+					if (rd == 1)
+						hwalls[rx][ry] = false;					
+					if (rd == 2)
+						vwalls[rx+1][ry] = false;					
+					if (rd == 3)
+						vwalls[rx][ry] = false;
+					
+					updateBags(nodes, a, b);
+				}
+				
+			}
+			catch(Exception e)
+			{}
+		}
+		
+		//randomly remove t walls to prevent choke points 
+		int r = (int) Math.sqrt(w*h/2); // arbitrary strategery 
+		while (r > 0)
+		{
+			int rx = (int)(Math.random()*(w));
+			int ry = (int)(Math.random()*(h));
+			
+			if (vwalls[rx][ry])
+			{
+				vwalls[rx][ry] = false;
+				hwalls[rx][ry] = false;
+				r--;
+			}
+		}
+		
+		// add temp walls to real walls
+		for (int i=0;i<w;i++)
+		{
+			for (int j=0;j<h;j++)
+			{
+				if (vwalls[i][j])
+					tempWalls.add(new Wall(i*NODE_LENGTH, j*NODE_LENGTH, 10, NODE_LENGTH + 10));
+				if (hwalls[i][j])
+					tempWalls.add(new Wall(i*NODE_LENGTH, j*NODE_LENGTH, NODE_LENGTH + 10, 10));
+			}
+		}
+		
+		//makes corners
+		for (int i=0;i<tempWalls.size();i++)
+		{
+			Wall t = tempWalls.get(i);
+			if (t.getOrientation().equals("V"))
+			{
+				walls.add(new Wall(t.getX(), t.getY(), t.getWidth(), 10));
+				walls.add(new Wall(t.getX(), t.getY() + 10, t.getWidth(), t.getHeight()-10));
+				walls.add(new Wall(t.getX(), t.getY() + t.getHeight() - 10, t.getWidth(), 10));
+			}
+			if (t.getOrientation().equals("H"))
+			{
+				walls.add(new Wall(t.getX(), t.getY(), 10, t.getHeight()));
+				walls.add(new Wall(t.getX() + 10, t.getY(), t.getWidth() - 10, t.getHeight()));
+				walls.add(new Wall(t.getX() + t.getWidth() - 10, t.getY(), 10, t.getHeight()));
+			}
+		}
+		
+		// border
+		walls.add(new Wall(0, 0, vars.fieldWidth, 10));
+		walls.add(new Wall(0, 0, 10, vars.fieldHeight));
+		walls.add(new Wall(0, vars.fieldHeight - 18, vars.fieldWidth, 10));
+		walls.add(new Wall(vars.fieldWidth, 0, 10, vars.fieldHeight));
+		
+		// invisible walls
+		for (int i=0;i<100;i++)
+		{
+			for (int j=0;j<vars.fieldHeight;j++)
+			{
+				Bullet temp = new Bullet(i, j, -1, "red");
+				bullets.add(temp);
+			}
+		}
+	}
+	
+	private void updateBags(int[][] n, int old, int nw)
+	{		
+		for (int i=0;i<n.length;i++)
+			for (int j=0;j<n[0].length;j++)
+				if (n[i][j] == old)
+					n[i][j] = nw;
+	}
+	
+	private boolean mazeDone(int[][] n)
+	{
+		for (int i=0;i<n.length-1;i++)
+			for (int j=0;j<n[0].length-1;j++)
+				if (n[i][j] != n[i+1][j] ||
+					 n[i][j] != n[i][j+1])
+					return false;
+		
+		return true;
+	}
+	
+	public void resetPowerups()
+	{
+		powerups.clear();
+		for (Tank t : vars.tanks)
+			t.clearPowerups();
+		vars.powerupCooldown = vars.powerupSpawnRate;
+	}
+	
+	public void resetNumbers()
+	{
+		//vars.redScore = vars.greenScore = 0;
+		bullets.clear();
+		
+		vars.redTank.setHasFired(false);
+		vars.greenTank.setHasFired(false);
+
+		vars.redTank.setDirection(rand(0, 360));
+		vars.greenTank.setDirection(rand(0, 360));
+		
+		resetPowerups();
+		
+		vars.winTextTime = 0;
+	}
+	
+	public void setUpTanks()
+	{
+//		vars.redTankX = (int) (Math.random()*(vars.fieldWidth/NODE_LENGTH -1)) * NODE_LENGTH + vars.redTankImage.getWidth()*1.5;
+//		vars.redTankY = (int) (Math.random()*(vars.fieldHeight/NODE_LENGTH -1)) * NODE_LENGTH  + vars.redTankImage.getHeight()*2;
+//		do
+//		{
+//			vars.greenTankX = (int) (Math.random()*(vars.fieldWidth/NODE_LENGTH -1)) * NODE_LENGTH  + vars.greenTankImage.getWidth(null)*1.5;
+//			vars.greenTankY = (int) (Math.random()*(vars.fieldHeight/NODE_LENGTH -1)) * NODE_LENGTH  + vars.greenTankImage.getHeight(null)*2;
+//		} while(vars.greenTankX == vars.redTankX && vars.greenTankY == vars.redTankY);
+
+		vars.redTank = new Tank(20, 20, "RED");
+		vars.greenTank = new Tank(80, 20, "GREEN");
+		vars.tanks.add(vars.redTank);
+		vars.tanks.add(vars.greenTank);
+	}
+
+	public void actionPerformed(ActionEvent e)
+	{
+		if (paused)
+			return;
+		
+		if (vars.winTextTime > 0)
+		{
+			vars.winTextTime--;
+			if (vars.winTextTime < 1)
+				reset();
+			return;
+		}
+		
+		checkTankMovement();
+		
+		if (pressedSpace && redFired == false)
+			vars.redTank.shoot();
+		
+		if (pressedZero)
+			vars.greenTank.shoot();
+		
+		moveBullets();
+		
+		checkCollisions();
+		checkWinners();
+		checkPowerups();
+		battlePanel.repaint();
+	}
+	
+	public void checkPowerups()
+	{
+		// checks if a powerup should be spawned
+		if (vars.powerupCooldown > 0)
+		{
+			vars.powerupCooldown--;
+			if (vars.powerupCooldown < 1)
+			{
+				vars.powerupCooldown = vars.powerupSpawnRate;
+				spawnPowerup();
+			}
+		}
+		
+		for (Tank t : vars.tanks)
+			t.updatePowerups();
+	}
+	
+	public void spawnPowerup()
+	{
+		if (!vars.powerupsOn)
+			return;
+		Powerup temp;
+		do
+		{
+			int x = (int)(Math.floor(Math.random() * vars.fieldWidth/40)*40) + 15;
+			int y = (int)(Math.floor(Math.random() * vars.fieldHeight/40)*40) + 15;
+			
+			temp = new Powerup(x,y);
+			//do-while to not collide with walls or dudes 
+		} while(collidesWithWalls(temp.getShape()) != null || shapeCollision(temp.getShape(), vars.redTank.shape()) ||
+					shapeCollision(temp.getShape(), vars.greenTank.shape()));
+		powerups.add(temp);
+	}
+	
+	public boolean collidesWithPowerups(myShape temp)
+	{
+		for (Powerup p : powerups)
+			if (shapeCollision(temp, p.getShape()))
+				return true;
+		
+		return false;
+	}
+	
+	public void checkTankMovement()
+	{
+		// move red tank
+		try
+		{
+			if (pressedW)
+			{
+				vars.redTank.doMovement("FORWARD");
+			}
+			if (pressedS)
+			{
+				vars.redTank.doMovement("BACKWARD");
+			}
+			if (pressedD)
+			{
+				vars.redTank.doMovement("RIGHT");
+			}
+			if (pressedA)
+			{
+				vars.redTank.doMovement("LEFT");
+			}
+		}catch(Exception e) {}
+		
+		//move green tank
+		try
+		{
+			if (pressedUp)
+			{
+				vars.greenTank.doMovement("FORWARD");
+			}
+			if (pressedDown)
+			{
+				vars.greenTank.doMovement("BACKWARD");
+			}
+			if (pressedLeft)
+			{
+				vars.greenTank.doMovement("LEFT");
+			}
+			if (pressedRight)
+			{
+				vars.greenTank.doMovement("RIGHT");
+			}
+		}catch (Exception e) {}
+	}
+	
+	public void moveBullets()
+	{
+		for (int i = 0; i< bullets.size(); i++)
+		{
+			//System.out.println(bullets.size());
+			Bullet bullet = bullets.get(i);
+			if (bullet.isDead())
+			{
+				for (Tank t : vars.tanks)
+					if (bullet.getOwner().equals(t.color()))
+						t.changeBulletsLeft(1);
+				
+				bullets.remove(i);
+			}
+			else
+			{
+				bullet.moveBullet();
+			}
+		}
+	}
+	
+	public Wall collidesWithWalls(myShape shape)
+	{
+		vars.badWall = null;
+		for (int i=0;i<walls.size();i++)
+		{
+			if (shapeCollision(walls.get(i).getShape(), shape))
+			{
+				vars.badWall = walls.get(i).getShape();
+				return walls.get(i);
+			}
+		}
+		return null;
+		
+		//		
+		//return the walls colliding/null and CHECK IF IT IS NULL YOU kind and thoughtful dudebro
+		//
+	}		
+
+	public void checkCollisions()
+	{
+		//shapeCollision();
+		
+		for (int i=0;i<bullets.size();i++)
+		{
+			Bullet bullet = bullets.get(i);
+			myShape bulletShape = bullet.getShape();
+			
+			for (Tank t : vars.tanks)
+			{
+				if (shapeCollision(bulletShape, t.shape()))
+				{
+					bullet.setDead(true);
+					if (!t.hasPower("invuln"))
+					{
+						System.out.println(t.color() + " KILLED");
+						t.setDead(true);
+						checkWinners();
+					}
+				}
+			}
+			
+			Wall tempWall = collidesWithWalls(bullet.getShape());
+			if (tempWall != null)
+			{
+				bullet.bounce(tempWall.getOrientation());
+			}
+		}
+		
+		try
+		{
+			for (Powerup p : powerups)
+			{
+				for (Tank t: vars.tanks)
+				{
+					if (shapeCollision(p.getShape(), t.shape()))
+					{
+						t.addPower(new TankPower(p.getType(), 800));
+						powerups.remove(p);
+					}
+				}
+			}
+		}
+		catch(ConcurrentModificationException e)
+		{
+		}
+	}
+	
+	public void checkWinners()
+	{
+		ArrayList<Tank> living = new ArrayList<Tank>();
+		for (Tank t : vars.tanks)
+		{
+			if (t.isDead())
+			{
+				t.clearPowerups();
+			} else {
+				living.add(t);
+			}
+		}
+		if (living.size() == 0)
+		{
+			vars.winner = "NOBODY";
+			vars.winTextTime = 400;
+		}
+		else if (living.size() == 1)
+		{
+			vars.winner = living.get(0).color() + " TANK";
+			living.get(0).addPoint(1);
+			vars.winTextTime = 400;
+		}			
+	}
+	
+	boolean shapeCollision(myShape a, myShape b)
+	{
+	    for (int x=0; x<2; x++)
+	    {
+	        myShape polygon = (x==0) ? a : b;
+	       
+	        for (int i1=0; i1<4; i1++)
+	        {
+	            int   i2 = (i1 + 1) % 4;
+	            Vector2D p1 = polygon.getVector2D(i1);
+	            Vector2D p2 = polygon.getVector2D(i2);
+	           
+	            Vector2D normal = new Vector2D(p2.getY() - p1.getY(), p1.getX() - p2.getX());
+	           
+	            double minA = Double.MAX_VALUE;
+	            double maxA = Double.MIN_VALUE;
+	           
+	            for (int j = 0; j < 4; j++)
+	            {
+	            	Vector2D point = a.getVector2D(j);
+	               double projected = normal.getX() * point.getX() + normal.getY() * point.getY();
+	               
+	               if (projected < minA)
+	                   minA = projected;
+	               if (projected > maxA)
+	                   maxA = projected;
+	            }
+	           
+	            double minB = Double.MAX_VALUE;
+	            double maxB = Double.MIN_VALUE;
+	           
+	            for (int j = 0; j < 4; j++)
+	            {
+	            	Vector2D point = b.getVector2D(j);
+	                double projected = normal.getX() * point.getX() + normal.getY() * point.getY();
+	               
+	                if (projected < minB)
+	                    minB = projected;
+	                if (projected > maxB)
+	                    maxB = projected;
+	            }
+	           
+	            if (maxA < minB || maxB < minA)
+	                return false;
+	        }
+	    }
+	   
+	    return true;
+	}
+	
+	public int rand(int l, int h)
+	{
+		//inclusive
+		return (int)(Math.random()*((h+1)-l)) +l;
+	}
+	
+	public void keyPressed(KeyEvent event)
+	{
+		//65: a
+		//68: d
+		//83: s
+		//87: w
+		
+		//47: fZero
+		
+		int key = event.getKeyCode();
+
+		if (key == KeyEvent.VK_CONTROL) // CONTROL key
+			controlKeyPressed = true;
+
+		if ((key == 88) && (controlKeyPressed)) // CONTROL + X
+		{
+			gameFrame.dispose();
+			System.exit(0);
+		}
+		
+		if ((key == 78) && (controlKeyPressed))
+		{
+			reset();
+		}
+		
+		//red controls wasd, green arrows
+		
+		switch(key)
+		{
+			case 65:
+				pressedA = true;
+				break;
+			case 68:
+				pressedD = true;
+				break;
+			case 83:
+				pressedS = true;
+				break;
+			case 87:
+				pressedW = true;
+				break;
+			case KeyEvent.VK_UP:
+				pressedUp = true;
+				break;
+			case KeyEvent.VK_DOWN:
+				pressedDown = true;
+				break;
+			case KeyEvent.VK_LEFT:
+				pressedLeft = true;
+				break;
+			case KeyEvent.VK_RIGHT:
+				pressedRight = true;
+				break;
+			case KeyEvent.VK_SPACE:
+				pressedSpace = true;
+				break;
+			case KeyEvent.VK_NUMPAD0:
+				//47
+				pressedZero = true;
+				break;
+		}
+	}
+	
+	public void keyReleased(KeyEvent event)
+	{
+		int key = event.getKeyCode();
+
+		if (key == KeyEvent.VK_CONTROL) // CONTROL key
+			controlKeyPressed = false;
+		
+		switch(key)
+		{
+			case 65:
+				pressedA = false;
+				break;
+			case 68:
+				pressedD = false;
+				break;
+			case 83:
+				pressedS = false;
+				break;
+			case 87:
+				pressedW = false;
+				break;
+			case KeyEvent.VK_UP:
+				pressedUp = false;
+				break;
+			case KeyEvent.VK_DOWN:
+				pressedDown = false;
+				break;
+			case KeyEvent.VK_LEFT:
+				pressedLeft = false;
+				break;
+			case KeyEvent.VK_RIGHT:
+				pressedRight = false;
+				break;
+			case KeyEvent.VK_SPACE:
+				pressedSpace = false;
+				vars.redTank.setHasFired(false);
+				break;
+			case KeyEvent.VK_NUMPAD0:
+				pressedZero = false;
+				vars.greenTank.setHasFired(false);
+				break;
+			case 27:
+				paused = !paused;
+				break;
+		}
+	}
+}

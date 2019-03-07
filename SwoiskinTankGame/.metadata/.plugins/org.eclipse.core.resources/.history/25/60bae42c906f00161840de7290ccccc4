@@ -1,0 +1,84 @@
+package TankGame;
+
+import java.awt.*;
+import java.awt.Image;
+import java.awt.image.BufferedImage;
+
+import javax.imageio.ImageIO;
+import javax.swing.*;
+
+// This class, with a default (empty) constructor, sets up global variables
+//  (as opposed to global constants, which are defined in a different file)
+//  that can be accessed (and modified) from multiple files; the variables
+//  are accessed through an instance of this class, which is created in the
+//  'GlobalConst' interface 
+
+// Allowing direct access to variables in this class may not be the best
+//  programming practice; some will argue (perhaps correctly) that the variables
+//  should all be made private and then accessed through public accessor and
+//  modifier methods (to maintain the programming concept of information hiding)
+
+// Regardless, programmatically this approach is almost certainly better than
+//  defining the variables in the 'Game' class and making them all static,
+//  since doing so would associate the variables with the classes themselves,
+//  not with instances of the classes (which can cause unintended side effects)
+public class GlobalVar
+{
+	int shooterX;
+	int shooterY;
+	
+	double redTankX, redTankY, greenTankX, greenTankY;
+	double redDirection, greenDirection;
+	
+	double directionIncrementer = 10;
+	double tankSpeed = .5;
+	
+	boolean gameOver = false;
+
+	// The Images below are, technically, constants, since their values are not
+	//  changed (new graphics are not loaded from disk) once they have been
+	//  initialized, but they are defined in this class (as opposed to the
+	//  interface that contains global constants) because the 'getClass' method
+	//  below cannot be used in an interface; while it is true that the Images
+	//  could be loaded without the use of the 'getClass' (and 'getResource')
+	//  methods, using those two methods allows all of the files that make up this
+	//  program (the .CLASS files and the graphics files) to be put into a single
+	//  .JAR file and then loaded and run directly from that (executable) file;
+	//  also, a benefit of using the 'ImageIcon' class is that, unlike some of the
+	//  other file-loading classes, the 'ImageIcon' class fully loads the Image
+	//  when the object is created, making it possible to immediately determine
+	//  and use the dimensions of the Image
+	
+	// old background
+	//Image backgroundImage = new ImageIcon(getClass().getResource("space.gif")).getImage();
+	BufferedImage backgroundImage = (BufferedImage) new ImageIcon(getClass().getResource("pvzfield.jpg")).getImage();
+	
+	Image shooterImage = new ImageIcon(getClass().getResource("shooter.png")).getImage();
+	Image alienImage = new ImageIcon(getClass().getResource("alien.png")).getImage();
+	Image missileImage = new ImageIcon(getClass().getResource("missile.png")).getImage();
+	
+	Image redtemp = new ImageIcon(getClass().getResource("redTank.fw.png")).getImage();
+	BufferedImage redTankImage = toBufferedImage(redtemp);
+	
+	
+	Image greenTankImage = new ImageIcon(getClass().getResource("greenTank.fw.png")).getImage();
+	
+	public static BufferedImage toBufferedImage(Image img)
+	{
+	    if (img instanceof BufferedImage)
+	    {
+	        return (BufferedImage) img;
+	    }
+
+	    // Create a buffered image with transparency
+	    BufferedImage bimage = new BufferedImage(img.getWidth(null), img.getHeight(null), BufferedImage.TYPE_INT_ARGB);
+
+	    // Draw the image on to the buffered image
+	    Graphics2D bGr = bimage.createGraphics();
+	    bGr.drawImage(img, 0, 0, null);
+	    bGr.dispose();
+
+	    // Return the buffered image
+	    return bimage;
+	}
+}

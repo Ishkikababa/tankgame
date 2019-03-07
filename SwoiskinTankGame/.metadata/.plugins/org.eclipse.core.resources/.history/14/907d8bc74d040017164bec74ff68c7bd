@@ -1,0 +1,52 @@
+package TankGame;
+
+import java.awt.Image;
+
+public class WallUnit implements GlobalConst
+{
+	private int myX, myY, myWidth, myHeight;
+	private String myOrientation;
+
+	public WallUnit(int gX, int gY, String orientation)
+	{
+		myX = gX;
+		myY = gY;
+		myWidth = myHeight = WALL_UNIT_WIDTH;
+		myOrientation = orientation;
+	}
+	
+	public int getX()
+	{
+		return myX;
+	}
+	
+	public int getY()
+	{
+		return myY;
+	}
+	
+	public int getWidth()
+	{
+		return myWidth;
+	}
+	
+	public int myHeight()
+	{
+		return myHeight;
+	}
+	
+	public String getOrientation()
+	{
+		return myOrientation;
+	}
+	
+	public void setOrientation(String newOrientation)
+	{
+		myOrientation = newOrientation;
+	}
+	
+	public Image getImage()
+	{
+		return gameVar.wallUnitImage;
+	}
+}

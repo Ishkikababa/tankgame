@@ -1,0 +1,16 @@
+import java.util.Scanner;
+
+public class test
+{
+	public static void main(String[] args)
+	{
+		Fractal f = new Fractal();
+
+		for (int i=0;i<8;i++)
+			f.drawDragon(14, 2, "r");
+		
+		
+//		CantorSet c = new CantorSet();
+//		c.drawC(10, 400);
+	}
+}

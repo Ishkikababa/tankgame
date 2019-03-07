@@ -1,0 +1,41 @@
+package TankGame;
+
+public class myShape
+{
+	private Vector2D myur, myul, mydr, mydl;
+	private Vector2D[] vectors;
+	
+	public myShape(Vector2D ur, Vector2D ul, Vector2D dr, Vector2D dl)
+	{
+		myur = ur; 
+		myul = ul;
+		mydr = dr;
+		mydl = dl;
+		vectors = new Vector2D[]{myur, myul, mydr, mydl};
+	}
+	
+	public Vector2D UR()
+	{
+		return myur;
+	}
+	
+	public Vector2D UL()
+	{
+		return myul;
+	}
+	
+	public Vector2D DR()
+	{
+		return mydr;
+	}
+	
+	public Vector2D DL()
+	{
+		return mydl;
+	}
+	
+	public Vector2D getVector2D(int i)
+	{
+		return Vector2Ds[i];
+	}
+}

@@ -1,0 +1,18 @@
+package TankGame;
+
+public class Tank
+{
+	double x, y, theta;
+	Vector2D ul, ur, dr, dl;
+	public Tank(double nx, double ny, String color)
+	{
+	}
+	
+	public double x() {return x;}
+	public double y() {return y;}
+
+	public void setX(double nx) {x = nx;}
+	public void setY(double ny) {x = ny;}
+	
+	
+}

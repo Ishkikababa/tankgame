@@ -1,0 +1,291 @@
+package TankGame; // 3/14/17 this one's gonna be big
+
+import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+
+public class Tank implements GlobalConst
+{
+	private double x, y, w, h, direction;
+	private double rcos, rsin;
+	private myShape mShape, tempShape;
+	private double moveBuffer = 2, angleBuffer = 2;
+	
+	private String color;
+	
+	private Vector2D ul, ur, dr, dl, center;
+	private ArrayList<Vector2D> points = new ArrayList<Vector2D>();
+	
+	private int bulletsLeft;
+	private boolean hasFired;
+	
+	private BufferedImage myImage;
+	
+	private ArrayList<TankPower> powers = new ArrayList<TankPower>();
+	private double speedModifier = 1;
+	private boolean MM = false, invuln = false;
+	
+	public Tank(double nx, double ny, String c)
+	{
+		x = nx;
+		y = ny;
+		direction = 0;
+		color = c;
+		bulletsLeft = MAX_BULLETS;
+		hasFired = false;
+		
+		// set color
+		switch(c)
+		{
+			case "red":
+				myImage = vars.redTankImage;
+				break;
+			case "green":
+				myImage = vars.greenTankImage;
+				break;
+		}
+		
+		w = myImage.getWidth();
+		h = myImage.getHeight();
+		center = new Vector2D((x + w)/2, (y+h)/2);
+		
+		setShape();
+	}
+	
+	// basic getters
+	public double x() {return x;}
+	public double y() {return y;}
+	public double w() {return w;}
+	public double h() {return h;}
+	public double direction() {return direction;}
+	public Vector2D getCenter() {return center;}
+	
+	public int getNumBulletsLeft() {return bulletsLeft;}
+	public boolean hasFired() {return hasFired;}
+	
+	public ArrayList<TankPower> getPowers() {return powers;}
+	public boolean isInvuln() {return invuln;}
+	
+	public String color() {return color;}
+	
+	public BufferedImage image(){return myImage;}
+	
+	public myShape shape() {return mShape;}
+	public Vector2D UL() {return ul;}
+	public Vector2D UR() {return ur;}
+	public Vector2D DL() {return dl;}
+	public Vector2D DR() {return dr;}
+	
+	// basic setters
+	public void setX(double nx) {x = nx; setShape();}
+	public void setY(double ny) {x = ny; setShape();}
+	public void setDirection (double d) {direction = d;}
+	public void setBulletsLeft(int n) {bulletsLeft = n;}
+	public void setHasFired(boolean f) {hasFired = f;}
+	public void addPower(TankPower t) {powers.add(t);}
+	
+	// advanced-er methods	
+	public void setShape()
+	{
+		points.clear();
+		ur = new Vector2D(x + w, y);
+		ul = new Vector2D(x, y);
+		dr = new Vector2D(x + w, y + h);
+		dl = new Vector2D(x, y + h);
+		points.add(ul);
+		points.add(ur);
+		points.add(dr);
+		points.add(dl);
+		mShape = new myShape(ul, ur, dr, dl);
+	}
+	
+	public void updateShape()
+	{
+		setShape();
+		center = new Vector2D(x+w/2, y+h/2);
+		//rotate to angle
+		for (Vector2D p : points)
+		{
+			double tempX, tempY, newX, newY;
+			
+			tempX = p.getX() - center.getX();
+			tempY = p.getY() - center.getY();
+
+			newX = tempX*Math.cos(Math.toRadians(direction)) - tempY*Math.sin(Math.toRadians(direction));
+			newY = tempX*Math.sin(Math.toRadians(direction)) + tempY*Math.cos(Math.toRadians(direction));
+
+			p.setX(newX + center.getX());
+			p.setY(newY + center.getY());
+		}
+		
+		mShape = new myShape(ul, ur, dr, dl);
+		
+		if (direction > 360)
+			direction = 0;
+		if (direction < 0)
+			direction = 360;
+		
+		rcos = Math.cos(Math.toRadians(direction)) * TANK_SPEED * speedModifier;
+		rsin = Math.sin(Math.toRadians(direction)) * TANK_SPEED * speedModifier;
+	}
+	
+	public void moveForward()
+	{
+		tempShape = new myShape(mShape);
+		moveTempFB(1);
+		
+		if (collidesWithWalls(tempShape) == null)
+		{
+			x += rcos;
+			y += rsin;
+			updateShape();
+		}
+	}
+	
+	public void moveBackward()
+	{
+		tempShape = new myShape(mShape);
+		moveTempFB(-1);
+		
+		if (collidesWithWalls(tempShape) == null)
+		{
+			x -= rcos;
+			y -= rsin;
+			updateShape();
+		}
+	}
+	
+	public void rotateRight()
+	{
+		tempShape = new myShape(mShape);
+		rotateShape(DIRECTION_INCREMENTER);
+		
+		if (collidesWithWalls(tempShape) == null)
+		{
+			direction++;
+			updateShape();
+		}
+	}
+	
+	public void rotateLeft()
+	{
+		tempShape = new myShape(mShape);
+		rotateShape(-DIRECTION_INCREMENTER);
+		
+		if (collidesWithWalls(tempShape) == null)
+		{
+			direction--;
+			updateShape();
+		}
+	}
+	
+	private void moveTempFB(int d) // FB = Forward/Backward
+	{
+		for (int i=0;i<4;i++) {
+			tempShape.getVector2D(i).setX(tempShape.getVector2D(i).getX() + d*(rcos + moveBuffer));
+			tempShape.getVector2D(i).setY(tempShape.getVector2D(i).getY() + d*(rsin + moveBuffer));
+		};
+	}	
+	
+	private void rotateShape(double d)
+	{
+		d = Math.toRadians(d);
+		for (int i=0;i<4;i++) {
+			Vector2D p = tempShape.getVector2D(i);
+			
+			double tempX, tempY, newX, newY;
+			
+			tempX = p.getX() - center.getX();
+			tempY = p.getY() - center.getY();
+
+			newX = tempX*Math.cos(d) - tempY*Math.sin(d);
+			newY = tempX*Math.sin(d) + tempY*Math.cos(d);
+
+			p.setX(newX + center.getX());
+			p.setY(newY + center.getY());
+		}
+	}
+	
+	public void shoot()
+	{
+		double extra = 1.5;
+		
+		if ((bulletsLeft > 0 || MM) && !hasFired)
+		{
+			bullets.add(new Bullet(center.getX() + Math.cos(Math.toRadians(direction)) * (w/2) * extra,
+						  center.getY() + Math.sin(Math.toRadians(direction)) * (w/2) * extra, 
+						  direction, color));
+			if (!MM)
+			{
+				bulletsLeft--;
+				hasFired = true;
+			}
+		}
+	}
+	
+	public void changeBulletsLeft(int n) 
+	{
+		bulletsLeft += n; 
+		if (bulletsLeft > 5)
+			bulletsLeft = 5;
+	}
+	
+	public void clearPowerups()
+	{
+		powers.clear();
+		speedModifier = 1;
+		invuln = MM = false;
+	}
+	
+	public void updatePowerups()
+	{
+		try
+		{
+			for (TankPower t : powers)
+				if (t.getTimeRemaining() > 0)
+				{
+					t.tickDown(1);
+					if (t.getTimeRemaining() < 1)
+						powers.remove(t);
+				} 
+				else
+					powers.remove(t);
+			
+			if (hasPower("speed"))
+				speedModifier = 2;
+			else
+				speedModifier = 1;
+			
+			
+			if (hasPower("invuln"))
+				invuln = true;
+			else
+				invuln = false;
+			
+			
+			if (hasPower("missile massacre"))
+				MM = true;
+			else
+				MM = false;		
+			
+		}
+		catch (Exception e){}
+	}
+	
+	public boolean hasPower(String power) 
+	{
+		for (TankPower tp : powers)
+			if (tp.getType().equals(power))
+				return true;
+		
+		return false;
+	}
+
+	public Wall collidesWithWalls(myShape shape)
+	{
+		for (int i=0;i<walls.size();i++)
+			if (walls.get(i).getShape().collidesWith(tempShape))
+				return walls.get(i);
+		
+		return null;
+	}
+}

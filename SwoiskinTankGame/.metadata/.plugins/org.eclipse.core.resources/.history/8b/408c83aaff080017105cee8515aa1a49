@@ -1,0 +1,39 @@
+package TankGame;
+
+import java.awt.image.BufferedImage;
+
+public class Tank implements GlobalConst
+{
+	private double x, y, direction;
+	private Vector2D ul, ur, dr, dl;
+	
+	private BufferedImage myImage;
+	public Tank(double nx, double ny, String color)
+	{
+		x = nx;
+		y = ny;
+		direction = 0;
+		
+		switch(color)
+		{
+			case "red":
+				myImage = vars.redTankImage;
+				break;
+			case "green":
+				myImage = vars.greenTankImage;
+				break;
+		}
+	}
+	
+	// basic getters
+	public double x() {return x;}
+	public double y() {return y;}
+	public double direction() {return direction;}
+
+	// basic setters
+	public void setX(double nx) {x = nx;}
+	public void setY(double ny) {x = ny;}
+	public void setDirection (double d) {direction = d;}
+	
+	
+}

@@ -1,0 +1,17 @@
+
+public class Triangle
+{
+
+	public static void main(String[] args)
+	{
+		
+	}
+
+	public void drawTriangle(int level, int length)
+	{
+		if (level > 0)
+		{
+			
+		}
+	}
+}

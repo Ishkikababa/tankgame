@@ -1,0 +1,41 @@
+package TankGame;
+
+public class myShape
+{
+	private Point myur, myul, mydr, mydl;
+	private Point[] points;
+	
+	public myShape(Point ur, Point ul, Point dr, Point dl)
+	{
+		myur = ur; 
+		myul = ul;
+		mydr = dr;
+		mydl = dl;
+		points = new Point[]{myur, myul, mydr, mydl};
+	}
+	
+	public Point UR()
+	{
+		return myur;
+	}
+	
+	public Point UL()
+	{
+		return myul;
+	}
+	
+	public Point DR()
+	{
+		return mydr;
+	}
+	
+	public Point DL()
+	{
+		return mydl;
+	}
+	
+	public Point getPoint(int i)
+	{
+		return points[i];
+	}
+}

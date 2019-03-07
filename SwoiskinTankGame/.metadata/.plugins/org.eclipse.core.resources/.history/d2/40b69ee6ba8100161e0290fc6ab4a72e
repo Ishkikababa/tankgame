@@ -1,0 +1,198 @@
+package TankGame;
+
+import java.awt.*;
+import java.awt.geom.AffineTransform;
+import java.awt.image.AffineTransformOp;
+
+import javax.swing.*;
+
+// This class, with a default (empty) constructor, creates a JPanel,
+//  which is added to the JFrame in the 'Game' class, thereby enabling
+//  a background Image (as opposed to just a single-color background)
+//  to be placed under the graphics objects (shooter, aliens, missiles)
+public class GamePanel extends JPanel implements GlobalConst
+{
+	private Font font = new Font("Helvetica", Font.BOLD, 24);
+	private FontMetrics metrics = this.getFontMetrics(font);
+	private AffineTransform redT = new AffineTransform();
+	private AffineTransform greenT = new AffineTransform();
+
+	// This method handles the painting/drawing of all Images for this
+	//  program; the Images are drawn onto a JPanel, which is displayed
+	//  on a JFrame; note that an Image is "removed" from the JPanel by
+	//  simply not having it redrawn by this method
+	public void paintComponent(Graphics g)
+	{
+		super.paintComponent(g);
+
+		// This line causes graphics and text to be rendered with anti-aliasing
+		//  turned on, making the overall display look smoother and cleaner
+		((Graphics2D) g).setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+		// Draw the background for the JPanel
+		
+		// CHANGED TO WHITE TEMPORARILY (????)
+		//g.drawImage(gameVar.backgroundImage, 0, 0, null);
+		
+		// Draw the shooter
+		//g.drawImage(gameVar.shooterImage, gameVar.shooterX, gameVar.shooterY, this);
+		
+		//draw tanks
+		
+		//yay
+		redT.setToTranslation(gameVar.redTankX, gameVar.redTankY);
+		redT.translate(gameVar.redTankImage.getWidth()/2, gameVar.redTankImage.getHeight()/2);
+		redT.rotate(Math.toRadians(gameVar.redDirection));
+		redT.translate(-gameVar.redTankImage.getWidth()/2, -gameVar.redTankImage.getHeight()/2);
+		
+		greenT.setToTranslation(gameVar.greenTankX, gameVar.greenTankY);
+		greenT.translate(gameVar.greenTankImage.getWidth(null)/2, gameVar.greenTankImage.getHeight(null)/2);
+		greenT.rotate(Math.toRadians(gameVar.greenDirection));
+		greenT.translate(-gameVar.greenTankImage.getWidth(null)/2, -gameVar.greenTankImage.getHeight(null)/2);
+		
+		Graphics2D g2d = (Graphics2D) g;
+		g2d.drawImage(gameVar.redTankImage, redT, null);
+		g2d.drawImage(gameVar.greenTankImage, greenT, null);
+		
+		/////////////////////////////////////////
+		/*
+		 *int rcx = (int) gameVar.redTankX + (gameVar.redTankImage.getWidth()/2);
+		  int rcy = (int) gameVar.redTankY + (gameVar.redTankImage.getHeight()/2);
+			
+		  bullets.add(new Bullet(rcx + Math.cos(Math.toRadians(gameVar.redDirection)) * (gameVar.redTankImage.getWidth()/2),
+										 rcy + Math.sin(Math.toRadians(gameVar.redDirection)) * (gameVar.redTankImage.getWidth()/2), 
+										 gameVar.redDirection, "red"));
+		*/
+		double rcx = gameVar.redTankX + (gameVar.redTankImage.getWidth()/2);
+		double rcy = gameVar.redTankY + (gameVar.redTankImage.getHeight()/2);
+		
+		double rx =  gameVar.redTankX;
+		double ry =  gameVar.redTankY;
+		double rw =  gameVar.redTankImage.getWidth();
+		double rh =  gameVar.redTankImage.getHeight();
+		double ra =  Math.toRadians(gameVar.redDirection);
+		
+		gameVar.rul = new Point(rx, ry);
+		gameVar.rur = new Point(rx + rw, ry);
+		gameVar.rdl = new Point(rx, ry + rh);
+		gameVar.rdr = new Point(rx + rw, ry + rh);
+		
+		gameVar.redPoints.clear();
+		
+		gameVar.redPoints.add(gameVar.rul);
+		gameVar.redPoints.add(gameVar.rur);
+		gameVar.redPoints.add(gameVar.rdl);
+		gameVar.redPoints.add(gameVar.rdr);
+		
+		for (int i = 0; i < gameVar.redPoints.size(); i++)
+		{
+			double tempX, tempY, newX, newY;
+			Point point = gameVar.redPoints.get(i);
+			
+			tempX = point.getX() - rcx;
+			tempY = point.getY() - rcy;
+			
+			newX = tempX*Math.cos(ra) - tempY*Math.sin(ra);
+			newY = tempX*Math.sin(ra) + tempY*Math.cos(ra);
+			
+			point.setX(newX + rcx);
+			point.setY(newY + rcy);
+			
+			g.drawOval((int)point.getX(),(int)point.getY(), 10, 10);
+		}
+		
+		double gcx = gameVar.greenTankX + (gameVar.greenTankImage.getWidth(null)/2);
+		double gcy = gameVar.greenTankY + (gameVar.greenTankImage.getHeight(null)/2);
+		
+		double gx =  gameVar.greenTankX;
+		double gy =  gameVar.greenTankY;
+		double gw =  gameVar.greenTankImage.getWidth(null);
+		double gh =  gameVar.greenTankImage.getHeight(null);
+		double ga =  Math.toRadians(gameVar.greenDirection);
+		
+		gameVar.gul = new Point(gx, gy);
+		gameVar.gur = new Point(gx + gw, gy);
+		gameVar.gdl = new Point(gx, gy + gh);
+		gameVar.gdr = new Point(gx + gw, gy + gh);
+		
+		gameVar.greenPoints.clear();
+		
+		gameVar.greenPoints.add(gameVar.gul);
+		gameVar.greenPoints.add(gameVar.gur);
+		gameVar.greenPoints.add(gameVar.gdl);
+		gameVar.greenPoints.add(gameVar.gdr);
+		
+		for (int i = 0; i < gameVar.greenPoints.size(); i++)
+		{
+			double tempX, tempY, newX, newY;
+			Point point = gameVar.greenPoints.get(i);
+			
+			tempX = point.getX() - gcx;
+			tempY = point.getY() - gcy;
+			
+			newX = tempX*Math.cos(ga) - tempY*Math.sin(ga);
+			newY = tempX*Math.sin(ga) + tempY*Math.cos(ga);
+			
+			point.setX(newX + gcx);
+			point.setY(newY + gcy);
+			
+			g.drawOval((int)point.getX(),(int)point.getY(), 10, 10);
+		}
+		
+		// Draw the aliens
+		for (int i = 0; i < aliens.size(); i++)
+		{
+			Alien alien = aliens.get(i);
+			g.drawImage(alien.getAlienImage(), alien.getX(), alien.getY(), this);
+		}
+		
+		// Draw the missiles
+		for (int i = 0; i < missiles.size(); i++)
+		{
+			Missile missile = missiles.get(i);
+			g.drawImage(missile.getMissileImage(), missile.getX(), missile.getY(), this);
+		}
+		
+		for (int i = 0; i< bullets.size(); i++)
+		{
+			//System.out.println(bullets.size());
+			Bullet bullet = bullets.get(i);
+			if (bullet.isDead())
+			{
+				if (bullet.getOwner().equals("red"))
+				{
+					gameVar.redBulletsLeft++;
+				}
+				else if (bullet.getOwner().equals("green"))
+				{
+					gameVar.greenBulletsLeft++;
+				}
+				
+				bullets.remove(i);
+			}
+			else
+			{
+				g.drawImage(bullet.getImage(), (int)bullet.getX(), (int)bullet.getY(), this);
+				bullet.moveBullet();
+			}
+		}
+
+		// If all of the aliens have been destroyed, display a "game over" message
+//		
+//		if (gameVar.gameOver)
+//		{
+//			String message = "Game Over!";
+//			g.setColor(Color.YELLOW);
+//			g.setFont(font);
+//			g.drawString(message, (getWidth() - metrics.stringWidth(message)) / 2, getHeight() / 2);
+//		}
+
+		// This line synchronizes the graphics state by flushing buffers containing
+		//  graphics events and forcing the frame drawing to happen now; otherwise,
+		//  it can sometimes take a few extra milliseconds for the drawing to take
+		//  place, which can result in jerky graphics movement; this line ensures
+		//  that the display is up-to-date; it is useful for animation, since it
+		//  reduces or eliminates flickering
+		Toolkit.getDefaultToolkit().sync();
+	}
+}

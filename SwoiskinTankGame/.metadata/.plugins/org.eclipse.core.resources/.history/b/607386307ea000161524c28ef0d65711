@@ -1,0 +1,16 @@
+package shortestPath;
+
+public class Temp
+{
+	public static void main(String[] args)
+	{
+		MyMatrix matrix = new MyMatrix();
+	}
+	
+	public static void NNalgo()
+	{
+		int currentShortest = Integer.MAX_VALUE;
+		
+		// loop to find a short path
+	}
+}

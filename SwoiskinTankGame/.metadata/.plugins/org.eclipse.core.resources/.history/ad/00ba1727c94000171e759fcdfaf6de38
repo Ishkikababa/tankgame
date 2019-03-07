@@ -1,0 +1,11 @@
+package TankGame;
+
+public class Shrapnel extends Bullet
+{
+
+	public Shrapnel(double x, double y, double gtheta, String original)
+	{
+		super(x, y, gtheta, original);
+	}
+
+}

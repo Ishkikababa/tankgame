@@ -1,0 +1,990 @@
+package TankGame;
+
+import java.awt.*;
+import java.awt.event.*;
+import java.io.Console;
+
+import javax.swing.*;
+import java.lang.Math;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.ConcurrentModificationException;
+import java.util.concurrent.TimeUnit;
+
+/*
+to-do list:
+	X make score board for any number of tanks
+	X draw orange and blue tanks
+	X draw death images
+	X fix background color for field/scoreboard (USE CUSTOM RGB COLORS)
+	X make start screen
+		play before match starts
+		determines which tanks are in the game (>=2)
+		
+	X Fix bullet reset on new game
+	X Add continue button
+	X Add timer after death and continue click
+	Add sound
+	Add sound controls in menuBar
+	
+	???
+	profit
+*/
+
+public class Game extends KeyAdapter implements GlobalConst, ActionListener
+{
+	private JFrame gameFrame;
+	private GamePanel battlePanel;
+	private Timer timer;
+	private JMenuBar menuBar;
+	private JMenu file;
+	private JMenuItem newGame, about, exit;
+	private JButton startButton, continueButton;
+
+	public static void main(String[] args)
+	{
+		new Game();
+	}
+
+	// Constructor
+	public Game()
+	{
+		gameFrame = new JFrame();
+		battlePanel = new GamePanel();
+		battlePanel.setLayout(null);
+		gameFrame.getContentPane().add(battlePanel);
+		gameFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		gameFrame.setSize(vars.fieldWidth + 16, vars.fieldHeight + 16 + 100); // 16 for weird jframe buffer
+		gameFrame.setTitle("Definitely Not Tank Trouble");
+		gameFrame.setLocationRelativeTo(null);
+		gameFrame.setResizable(false);
+		gameFrame.setFocusable(true);
+		
+		menuBar = new JMenuBar();
+		menuBar.setVisible(true);
+		
+		file = new JMenu("File");
+		
+		newGame = new JMenuItem("New Game");
+		newGame.setActionCommand("New Game");
+		newGame.addActionListener(this);
+		newGame.setVisible(true);
+				
+		about = new JMenuItem("About");
+		about.setActionCommand("About");
+		about.addActionListener(this);
+		about.setVisible(true);
+		
+		exit = new JMenuItem("Exit");
+		exit.setActionCommand("Exit");
+		exit.addActionListener(this);
+		exit.setVisible(true);
+
+		file.add(newGame);
+		file.add(about);
+		file.addSeparator();
+		file.add(exit);
+		
+		menuBar.add(file);
+		gameFrame.setJMenuBar(menuBar);
+		
+		startButton = new JButton("START");
+		startButton.setSize(240, 40);
+		startButton.setLocation(80, 416);
+		startButton.setBackground(Color.DARK_GRAY);
+		startButton.setForeground(Color.WHITE);
+		startButton.setActionCommand("Start");
+		startButton.setFocusable(false);
+		startButton.addActionListener(this);
+		startButton.setVisible(false);
+		
+		continueButton = new JButton("PRESS ANY KEY TO CONTINUE");
+		continueButton.setSize(240, 40);
+		continueButton.setBackground(Color.DARK_GRAY);
+		continueButton.setForeground(Color.WHITE);
+		continueButton.setActionCommand("Continue");
+		continueButton.setFocusable(false);
+		continueButton.addActionListener(this);
+		continueButton.setVisible(false);
+		
+		battlePanel.add(continueButton);
+		battlePanel.add(startButton);
+		
+		gameFrame.addKeyListener(this);
+		gameFrame.setVisible(true);
+
+		// Set (and start) a new Swing Timer to fire every 'TIMER_SPEED' milliseconds,
+		//  after an initial delay of 'TIMER_DELAY' milliseconds; this Timer, along
+		//  with the distance (number of pixels) that the aliens, missiles, and shooter
+		//  move with each cycle, controls how fast the objects move on the playing
+		//  field; note that if adding a "pause/unpause" feature to this game, the
+		//  value of the 'TIMER_DELAY' constant should probably be set to zero
+		timer = new Timer(TIMER_SPEED, this);
+		timer.setInitialDelay(TIMER_DELAY);
+		timer.start();
+	}
+	
+	public void start()
+	{
+		makeMaze();
+		setUpTanks();
+		resetNumbers();
+		resetPowerups();
+	}
+	
+	public void reset()
+	{
+		makeMaze();
+		resetTanks();
+		resetNumbers();
+		resetPowerups();
+	}
+	
+	public void resetTanks()
+	{
+		int w = vars.fieldWidth/NODE_LENGTH;
+		int h = vars.fieldHeight/NODE_LENGTH;
+		
+		// make a list of all possible spots and randomly assign to tanks so that they don't stack
+		ArrayList<Vector2D> spots = new ArrayList<Vector2D>();
+		
+		for (int i=0;i<w-1;i++)
+			for (int j=0;j<h-1;j++)
+				spots.add(new Vector2D(i * NODE_LENGTH, j * NODE_LENGTH));
+		
+		Collections.shuffle(spots);
+		
+		int c = 0;
+		for (Tank t : vars.tanks)
+		{
+			Vector2D spot = spots.get(c);
+			c++;
+			t.setX(spot.getX() + NODE_LENGTH/2 - t.image().getWidth()/2);
+			t.setY(spot.getY() + NODE_LENGTH/2 - t.image().getHeight()/2);
+			t.setDirection(rand(0, 360));
+			
+			t.setHasFired(false);
+			t.setDead(false);
+		}
+	}
+	
+	public void resetPowerups()
+	{
+		powerups.clear();
+		for (Tank t : vars.tanks)
+			t.clearPowerups();
+		vars.powerupCooldown = vars.powerupSpawnRate;
+	}
+	
+	public void resetNumbers()
+	{
+		bullets.clear();
+		
+		for (Tank t : vars.tanks)
+			t.setBulletsLeft(MAX_BULLETS);
+		vars.winTextOn = false;
+		vars.deathTime = -1;
+		vars.continueTime = -1;
+		vars.winner = "";
+	}
+	
+	public void setUpTanks()
+	{
+		vars.tanks.clear();
+	
+		for (String s : vars.tanksToAdd)
+		{
+			if (s.equals("RED"))
+			{
+				vars.redTank = new Tank(0, 0, 0, "RED");
+				vars.tanks.add(vars.redTank);
+			}
+			
+			if (s.equals("GREEN"))
+			{
+				vars.greenTank = new Tank(0, 0, 0, "GREEN");
+				vars.tanks.add(vars.greenTank);
+			}
+			
+			if (s.equals("ORANGE"))
+			{
+				vars.orangeTank = new Tank(0, 0, 0, "ORANGE");
+				vars.tanks.add(vars.orangeTank);		
+			}
+			
+			if (s.equals("BLUE"))
+			{
+				vars.blueTank = new Tank(0, 0, 0, "BLUE");
+				vars.tanks.add(vars.blueTank);
+			}
+		}
+			
+		resetTanks();
+	}
+
+	public void actionPerformed(ActionEvent e)
+	{
+		battlePanel.repaint();
+		
+		if (e.getActionCommand() != null)
+			switch(e.getActionCommand())
+			{
+				case "New Game":
+					continueButton.doClick();
+					start();
+					break;
+				case "Exit":
+					gameFrame.dispose();
+					System.exit(0);
+					break;
+				case "About":
+					String message = "Made by Aaron Swoiskin, Programming 5-6 2016-17.\n"
+										+ "Based off of Dave Goldsmith's Space Shooter game.\n"
+										+ "I do not apologize for bad code. Best of luck to future editors.\n"
+										+ "Sometimes bullets are passifists and just want to hide in walls. Respect them.\n"
+										+ "For feedback, email aaron.swoiskin@student.tamdistrict.org";
+					JOptionPane.showMessageDialog(null, message, "About", JOptionPane.INFORMATION_MESSAGE);
+					break;
+				case "Start":
+					vars.startScreenActive = false;
+					break;
+				case "Continue":
+					vars.winTextOn = false;
+					continueButton.setVisible(false);
+					vars.continueTime = vars.continueStart;
+					Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+					vars.fieldWidth = 400;
+					vars.fieldHeight = 400;
+					gameFrame.setSize(vars.fieldWidth + 16, vars.fieldHeight + vars.scoreBoardHeight);
+					if (vars.tanksToAdd.size() < 3)
+						gameFrame.setSize(vars.fieldWidth + 16, vars.fieldHeight + vars.scoreBoardHeight/2);
+					gameFrame.setLocation((int)screenSize.getWidth()/2 - vars.fieldWidth/2,(int) screenSize.getHeight()/2 - (vars.fieldHeight + vars.scoreBoardHeight)/2);
+					
+					break;
+			}
+		
+		if (!vars.gameOn)
+			newGame.setEnabled(false);
+		else
+			newGame.setEnabled(true);
+		
+		if (vars.tanksToAdd.size() >= 2 && vars.startScreenActive)
+			startButton.setVisible(true);
+		else
+			startButton.setVisible(false);
+		
+		if (vars.continueTime > 0)
+		{
+			vars.continueTime--;
+			if (vars.continueTime < 1)
+				reset();
+			else
+				return;
+		}
+		
+		if (vars.paused || vars.startScreenActive || vars.winTextOn)
+			return;
+		
+		if (!vars.gameOn)
+		{
+			if (vars.startTimer > 0)
+			{
+				vars.startTimer--;
+				return;
+			}
+			else
+			{
+				start();
+				vars.gameOn = true;
+			}
+		}
+		
+//		if (vars.winTextTime > 0)
+//		{
+//			vars.winTextTime--;
+//			if (vars.winTextTime < 1)
+//				reset();
+//			return;
+//		}
+		
+		if (vars.deathTime > 0)
+		{
+			vars.deathTime--;
+			if (vars.deathTime < 1)
+				setWinOn();
+		}
+		
+		checkTankMovement();
+		checkShooting();
+		moveBullets();
+		
+		checkCollisions();
+		checkPowerups();
+		checkWinners();
+	}
+	
+	public void checkShooting()
+	{
+		if (vars.redTank != null && !vars.redTank.isDead() && vars.pressedSpace)
+			vars.redTank.shoot();
+		
+		if (vars.greenTank != null && !vars.greenTank.isDead() && vars.pressedZero)
+			vars.greenTank.shoot();
+		
+		if (vars.orangeTank != null && !vars.orangeTank.isDead() && vars.pressedSemi)
+			vars.orangeTank.shoot();
+		
+		if (vars.blueTank != null && !vars.blueTank.isDead() && vars.pressedEnter)
+			vars.blueTank.shoot();
+	}
+	
+	public void checkPowerups()
+	{
+		// checks if a powerup should be spawned
+		if (vars.powerupCooldown > 0)
+		{
+			vars.powerupCooldown--;
+			if (vars.powerupCooldown < 1)
+			{
+				vars.powerupCooldown = vars.powerupSpawnRate;
+				spawnPowerup();
+			}
+		}
+		
+		for (Tank t : vars.tanks)
+			t.updatePowerups();
+	}
+	
+	public void spawnPowerup()
+	{
+		if (!vars.powerupsOn)
+			return;
+		Powerup temp;
+		do
+		{
+			int x = rand(0, vars.fieldWidth/NODE_LENGTH)*NODE_LENGTH + NODE_LENGTH/2;
+			int y = rand(0, (vars.fieldHeight/NODE_LENGTH)-1)*NODE_LENGTH + NODE_LENGTH/2;
+			
+			temp = new Powerup(x,y);
+			//do-while to not collide with walls or dudes 
+		} while(collidesWithTanks(temp.getShape()));
+		powerups.add(temp);
+	}
+	
+	public boolean collidesWithPowerups(myShape temp)
+	{
+		for (Powerup p : powerups)
+			if (shapeCollision(temp, p.getShape()))
+				return true;
+		
+		return false;
+	}
+	
+	public void checkTankMovement()
+	{
+		// move red tank
+		if (vars.redTank != null && !vars.redTank.isDead())
+		{
+			if (vars.pressedW)
+				vars.redTank.doMovement("FORWARD");
+			if (vars.pressedS)
+				vars.redTank.doMovement("BACKWARD");
+			if (vars.pressedD)
+				vars.redTank.doMovement("RIGHT");
+			if (vars.pressedA)
+				vars.redTank.doMovement("LEFT");
+		}
+		
+		//move green tank
+		if (vars.greenTank != null && !vars.greenTank.isDead())
+		{
+			if (vars.pressedUp)
+				vars.greenTank.doMovement("FORWARD");
+			if (vars.pressedDown)
+				vars.greenTank.doMovement("BACKWARD");
+			if (vars.pressedLeft)
+				vars.greenTank.doMovement("LEFT");
+			if (vars.pressedRight)
+				vars.greenTank.doMovement("RIGHT");
+		}
+		
+		if (vars.orangeTank != null && !vars.orangeTank.isDead())
+		{
+			if (vars.pressedI)
+				vars.orangeTank.doMovement("FORWARD");
+			if (vars.pressedK)
+				vars.orangeTank.doMovement("BACKWARD");
+			if (vars.pressedJ)
+				vars.orangeTank.doMovement("LEFT");
+			if (vars.pressedL)
+				vars.orangeTank.doMovement("RIGHT");
+		}		
+		
+		if (vars.blueTank != null && !vars.blueTank.isDead())
+		{
+			if (vars.pressed4)
+				vars.blueTank.doMovement("FORWARD");
+			if (vars.pressed5)
+				vars.blueTank.doMovement("BACKWARD");
+			if (vars.pressed2)
+				vars.blueTank.doMovement("LEFT");
+			if (vars.pressed8)
+				vars.blueTank.doMovement("RIGHT");
+		}
+		
+	}
+	
+	public void moveBullets()
+	{
+		for (int i = 0; i< bullets.size(); i++)
+		{
+			//System.out.println(bullets.size());
+			Bullet bullet = bullets.get(i);
+			if (bullet.isDead())
+			{
+				for (Tank t : vars.tanks)
+					if (bullet.getOwner().equals(t.color()))
+						t.changeBulletsLeft(1);
+				
+				bullets.remove(i);
+			}
+			else
+			{
+				bullet.moveBullet();
+			}
+		}
+	}
+	
+	public Wall collidesWithWalls(myShape shape)
+	{
+		vars.badWall = null;
+		for (int i=0;i<walls.size();i++)
+		{
+			if (shapeCollision(walls.get(i).getShape(), shape))
+			{
+				vars.badWall = walls.get(i).getShape();
+				return walls.get(i);
+			}
+		}
+		return null;
+	}		
+
+	public boolean collidesWithTanks(myShape shape)
+	{
+		for (Tank t : vars.tanks)
+		{
+			if (shapeCollision(t.shape(), shape))
+				return true;
+		}
+		return false;
+	}
+	
+	public void checkCollisions()
+	{		
+		for (int i=0;i<bullets.size();i++)
+		{
+			Bullet bullet = bullets.get(i);
+			myShape bulletShape = bullet.getShape();
+			
+			for (Tank t : vars.tanks)
+			{
+				if (shapeCollision(bulletShape, t.shape()) && !t.isDead())
+				{
+					bullet.setDead(true);
+					if (!t.hasPower("invuln"))
+					{
+						t.setDead(true);
+					}
+				}
+			}
+			
+			Wall tempWall = collidesWithWalls(bullet.getShape());
+			if (tempWall != null)
+				bullet.bounce(tempWall.getOrientation());
+		}
+		
+		try
+		{
+			for (Powerup p : powerups)
+				for (Tank t: vars.tanks)
+					if (shapeCollision(p.getShape(), t.shape()))
+					{
+						t.addPower(new TankPower(p.getType(), 800));
+						powerups.remove(p);
+					}
+		}
+		catch(ConcurrentModificationException e){}
+	}
+	
+	public void checkWinners()
+	{
+		if (vars.deathTime > 0)
+			return;
+		
+		ArrayList<Tank> living = new ArrayList<Tank>();
+		living.clear();
+		for (Tank t : vars.tanks)
+			if (t.isDead()) 
+			{
+				t.clearPowerups();
+				t.setDirection(0);
+			}
+			else
+				living.add(t);
+		
+		if (living.size() <= 1 && vars.deathTime == -1)
+			vars.deathTime = (living.size() == 1) ? vars.deathStart : 10;
+		
+		if (vars.deathTime == 0)
+		{
+			if (living.size() == 0)
+			{
+				vars.winner = "NOBODY";
+				vars.deathTime = 1;
+			}
+			else if (living.size() == 1)
+			{
+				vars.winner = living.get(0).color() + " TANK";
+				living.get(0).addPoint(1);
+				vars.deathTime = vars.deathStart;
+			}
+			vars.deathTime = -1;
+		}
+	}
+	
+	public void setWinOn()
+	{
+		vars.winTextOn = true;
+		continueButton.setLocation(vars.fieldWidth/2 - continueButton.getWidth()/2, vars.fieldHeight/2 + continueButton.getHeight()/2 + 100);
+		continueButton.setVisible(true);
+	}
+	
+	// http://weblog.jamisbuck.org/2011/1/3/maze-generation-kruskal-s-algorithm
+	public void makeMaze()
+	{
+		walls.clear();
+		ArrayList<Wall> tempWalls = new ArrayList<Wall>();
+		
+		vars.fieldWidth = 300 + 100*rand(0, 4);
+		vars.fieldHeight = 300 + 100*rand(0, 4);
+		
+		Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+		gameFrame.setSize(vars.fieldWidth + 16, vars.fieldHeight + vars.scoreBoardHeight);
+		if (vars.tanksToAdd.size() < 3)
+			gameFrame.setSize(vars.fieldWidth + 16, vars.fieldHeight + vars.scoreBoardHeight/2);
+		
+		gameFrame.setLocation((int)screenSize.getWidth()/2 - vars.fieldWidth/2,(int) screenSize.getHeight()/2 - (vars.fieldHeight + vars.scoreBoardHeight)/2);
+		
+		int w = vars.fieldWidth/NODE_LENGTH;
+		int h = vars.fieldHeight/NODE_LENGTH;
+		int[][] nodes = new int[w][h];
+		
+		boolean[][] vwalls = new boolean[w][h];
+		boolean[][] hwalls = new boolean[w][h];
+		
+		int index = 0;
+		for (int i=0;i<w;i++)
+		{
+			for (int j=0;j<h;j++)
+			{
+				//make a temp wall everywhere in between nodes in an array
+				vwalls[i][j] = true;
+				hwalls[i][j] = true;
+				nodes[i][j] = index;
+				index++;
+			}
+		}
+		
+		while(!mazeDone(nodes))
+		{
+			int rx = (int)(Math.random()*(w));
+			int ry = (int)(Math.random()*(h));
+			int rd = (int)(Math.random()*4); // random direction (n,s,e,w) to compare to
+
+			try
+			{
+				int a = nodes[rx][ry], b = -1;
+				switch(rd)
+				{
+					case 0:
+						b = nodes[rx][ry + 1];
+						break;
+					case 1:
+						b = nodes[rx][ry - 1];
+						break;
+					case 2:
+						b = nodes[rx + 1][ry];
+						break;
+					case 3:
+						b = nodes[rx - 1][ry];
+						break;
+				}
+				
+				if (a != b)
+				{
+					
+					if (rd == 0)
+						hwalls[rx][ry+1] = false;					
+					if (rd == 1)
+						hwalls[rx][ry] = false;					
+					if (rd == 2)
+						vwalls[rx+1][ry] = false;					
+					if (rd == 3)
+						vwalls[rx][ry] = false;
+					
+					updateBags(nodes, a, b);
+				}
+				
+			}
+			catch(Exception e)
+			{}
+		}
+		
+		//randomly remove t walls to prevent choke points 
+		int r = (int) Math.sqrt(w*h/2); // arbitrary strategery 
+		while (r > 0)
+		{
+			int rx = (int)(Math.random()*(w));
+			int ry = (int)(Math.random()*(h));
+			
+			if (vwalls[rx][ry])
+			{
+				vwalls[rx][ry] = false;
+				hwalls[rx][ry] = false;
+				r--;
+			}
+		}
+		
+		hwalls[w-1][h-1] = false; //lazy way of fixing bug where the bottom right corner can be cut off
+		
+		// add temp walls to real walls
+		for (int i=0;i<w;i++)
+		{
+			for (int j=0;j<h;j++)
+			{
+				if (vwalls[i][j])
+					tempWalls.add(new Wall(i*NODE_LENGTH, j*NODE_LENGTH, 10, NODE_LENGTH + 10));
+				if (hwalls[i][j])
+					tempWalls.add(new Wall(i*NODE_LENGTH, j*NODE_LENGTH, NODE_LENGTH + 10, 10));
+			}
+		}
+		
+		int b = 4; // buffer
+		ArrayList<Wall> endWalls = new ArrayList<Wall>();
+		
+		//makes corners
+		for (int i=0;i<tempWalls.size();i++)
+		{
+			Wall t = tempWalls.get(i);
+			if (t.getOrientation().equals("V"))
+			{
+				walls.add(new Wall(t.getX(), t.getY() + b, t.getWidth(), t.getHeight()-b)); //"main"
+				
+				walls.add(new Wall(t.getX(), t.getY(), b, b));
+				walls.add(new Wall(t.getX() + t.getWidth() - b, t.getY(), b, b));
+				walls.add(new Wall(t.getX(), t.getY(), t.getWidth(), b)); //top
+				
+				walls.add(new Wall(t.getX(), t.getY() + t.getHeight() - b, b, b));
+				walls.add(new Wall(t.getX() + t.getWidth() - b, t.getY() + t.getHeight() - b, b, b));
+				walls.add(new Wall(t.getX(), t.getY() + t.getHeight() - b, t.getWidth(), b)); //bottom
+			}
+			if (t.getOrientation().equals("H"))
+			{
+				walls.add(new Wall(t.getX() + b, t.getY(), t.getWidth() - b, t.getHeight())); //"main"
+				
+				walls.add(new Wall(t.getX(), t.getY(), b, b));
+				walls.add(new Wall(t.getX(), t.getY() + t.getHeight() - b, b, b));
+				walls.add(new Wall(t.getX(), t.getY(), b, t.getHeight())); //left
+				
+				walls.add(new Wall(t.getX() + t.getWidth() - b, t.getY(), b, b));
+				walls.add(new Wall(t.getX() + t.getWidth() - b, t.getY() + t.getHeight() - b, b, b));
+				walls.add(new Wall(t.getX() + t.getWidth() - b, t.getY(), b, t.getHeight())); //right 
+			}
+		}
+		
+//		int b2 = 1;
+//		for (Wall t : endWalls)
+//		{
+//			if (t.getOrientation().equals("V"))
+//			{
+//				walls.add(new Wall(t.getX(), t.getY() + b2, t.getWidth(), t.getHeight()-b2)); //"main"
+//				walls.add(new Wall(t.getX(), t.getY(), t.getWidth(), b2)); //top
+//				walls.add(new Wall(t.getX(), t.getY() + t.getHeight() - b2, t.getWidth(), b2)); //b2ottom
+//			}
+//			if (t.getOrientation().equals("H"))
+//			{
+//				walls.add(new Wall(t.getX() + b2, t.getY(), t.getWidth() - b2, t.getHeight())); //"main"
+//				walls.add(new Wall(t.getX(), t.getY(), b2, t.getHeight())); 
+//				walls.add(new Wall(t.getX() + t.getWidth() - b2, t.getY(), b2, t.getHeight())); 
+//			}
+//		}
+		
+		// border
+		walls.add(new Wall(0, 0, vars.fieldWidth, 10));
+		walls.add(new Wall(0, 0, 10, vars.fieldHeight));
+		walls.add(new Wall(0, vars.fieldHeight, vars.fieldWidth + 10, 10));
+		walls.add(new Wall(vars.fieldWidth, 0, 10, vars.fieldHeight));
+	}
+	
+	private void updateBags(int[][] n, int old, int nw)
+	{		
+		for (int i=0;i<n.length;i++)
+			for (int j=0;j<n[0].length;j++)
+				if (n[i][j] == old)
+					n[i][j] = nw;
+	}
+	
+	private boolean mazeDone(int[][] n)
+	{
+		for (int i=0;i<n.length-1;i++)
+			for (int j=0;j<n[0].length-1;j++)
+				if (n[i][j] != n[i+1][j] ||
+					 n[i][j] != n[i][j+1])
+					return false;
+		
+		return true;
+	}
+	
+	//not mine thanks internet
+	boolean shapeCollision(myShape a, myShape b)
+	{
+	    for (int x=0; x<2; x++)
+	    {
+	        myShape polygon = (x==0) ? a : b;
+	       
+	        for (int i1=0; i1<4; i1++)
+	        {
+	            int   i2 = (i1 + 1) % 4;
+	            Vector2D p1 = polygon.getVector2D(i1);
+	            Vector2D p2 = polygon.getVector2D(i2);
+	           
+	            Vector2D normal = new Vector2D(p2.getY() - p1.getY(), p1.getX() - p2.getX());
+	           
+	            double minA = Double.MAX_VALUE;
+	            double maxA = Double.MIN_VALUE;
+	           
+	            for (int j = 0; j < 4; j++)
+	            {
+	            	Vector2D point = a.getVector2D(j);
+	               double projected = normal.getX() * point.getX() + normal.getY() * point.getY();
+	               
+	               if (projected < minA)
+	                   minA = projected;
+	               if (projected > maxA)
+	                   maxA = projected;
+	            }
+	           
+	            double minB = Double.MAX_VALUE;
+	            double maxB = Double.MIN_VALUE;
+	           
+	            for (int j = 0; j < 4; j++)
+	            {
+	            	Vector2D point = b.getVector2D(j);
+	                double projected = normal.getX() * point.getX() + normal.getY() * point.getY();
+	               
+	                if (projected < minB)
+	                    minB = projected;
+	                if (projected > maxB)
+	                    maxB = projected;
+	            }
+	           
+	            if (maxA < minB || maxB < minA)
+	                return false;
+	        }
+	    }
+	   
+	    return true;
+	}
+	
+	public int rand(int l, int h)
+	{
+		//inclusive
+		return (int)(Math.random()*((h+1)-l)) +l;
+	}
+	
+	public void keyPressed(KeyEvent event)
+	{
+		//65: a
+		//68: d
+		//83: s
+		//87: w
+		
+		//47: fZero
+		
+		int key = event.getKeyCode();
+		
+		if (vars.winTextOn)
+			continueButton.doClick();
+
+		if (key == KeyEvent.VK_CONTROL) // CONTROL key
+			vars.pressedControlKey = true;
+
+		if ((key == 88) && (vars.pressedControlKey)) // CONTROL + X
+		{
+			gameFrame.dispose();
+			System.exit(0);
+		}
+		
+		if ((key == 78) && (vars.pressedControlKey))
+		{
+			start();
+		}
+		
+		//red controls wasd, green arrows, orange ijkl;, blue 4258enter
+		
+		switch(key)
+		{
+			case 65:
+				vars.pressedA = true;
+				break;
+			case 68:
+				vars.pressedD = true;
+				break;
+			case 83:
+				vars.pressedS = true;
+				break;
+			case 87:
+				vars.pressedW = true;
+				break;
+			case KeyEvent.VK_SPACE:
+				vars.pressedSpace = true;
+				break;
+				
+			case KeyEvent.VK_UP:
+				vars.pressedUp = true;
+				break;
+			case KeyEvent.VK_DOWN:
+				vars.pressedDown = true;
+				break;
+			case KeyEvent.VK_LEFT:
+				vars.pressedLeft = true;
+				break;
+			case KeyEvent.VK_RIGHT:
+				vars.pressedRight = true;
+				break;
+			case KeyEvent.VK_NUMPAD0:
+				vars.pressedZero = true;
+				break;
+				
+			case 73:
+				vars.pressedI = true;
+				break;
+			case 74:
+				vars.pressedJ = true;
+				break;
+			case 75:
+				vars.pressedK = true;
+				break;
+			case 76: 
+				vars.pressedL = true;
+				break;
+			case 59:
+				vars.pressedSemi = true;
+				break;
+				
+			case KeyEvent.VK_NUMPAD4:
+				vars.pressed4 = true;
+				break;
+			case KeyEvent.VK_NUMPAD2:
+				vars.pressed2 = true;
+				break;
+			case KeyEvent.VK_NUMPAD5:
+				vars.pressed5 = true;
+				break;
+			case KeyEvent.VK_NUMPAD8:
+				vars.pressed8 = true;
+				break;
+			case KeyEvent.VK_ENTER:
+				vars.pressedEnter = true;
+				break;
+				
+			case 8:
+				vars.pressedBackspace = true;
+				if (vars.tanksToAdd.size() >= 2)
+					startButton.doClick();
+				break;
+		}
+	}
+	
+	public void keyReleased(KeyEvent event)
+	{
+		int key = event.getKeyCode();
+
+		if (key == KeyEvent.VK_CONTROL) // CONTROL key
+			vars.pressedControlKey = false;
+		
+		switch(key)
+		{
+			case 65:
+				vars.pressedA = false;
+				break;
+			case 68:
+				vars.pressedD = false;
+				break;
+			case 83:
+				vars.pressedS = false;
+				break;
+			case 87:
+				vars.pressedW = false;
+				break;
+			case KeyEvent.VK_SPACE:
+				vars.pressedSpace = false;
+				if (vars.redTank != null) {vars.redTank.setHasFired(false);}
+				break;
+				
+			case KeyEvent.VK_UP:
+				vars.pressedUp = false;
+				break;
+			case KeyEvent.VK_DOWN:
+				vars.pressedDown = false;
+				break;
+			case KeyEvent.VK_LEFT:
+				vars.pressedLeft = false;
+				break;
+			case KeyEvent.VK_RIGHT:
+				vars.pressedRight = false;
+				break;
+			case KeyEvent.VK_NUMPAD0:
+				vars.pressedZero = false;
+				if (vars.greenTank != null) {vars.greenTank.setHasFired(false);}
+				break;
+				
+			case 73:
+				vars.pressedI = false;
+				break;
+			case 74:
+				vars.pressedJ = false;
+				break;
+			case 75:
+				vars.pressedK = false;
+				break;
+			case 76: 
+				vars.pressedL = false;
+				break;
+			case 59:
+				vars.pressedSemi = false;
+				if (vars.orangeTank != null) {vars.orangeTank.setHasFired(false);}
+				break;
+				
+			case KeyEvent.VK_NUMPAD4:
+				vars.pressed4 = false;
+				break;
+			case KeyEvent.VK_NUMPAD2:
+				vars.pressed2 = false;
+				break;
+			case KeyEvent.VK_NUMPAD5:
+				vars.pressed5 = false;
+				break;
+			case KeyEvent.VK_NUMPAD8:
+				vars.pressed8 = false;
+			case KeyEvent.VK_ENTER:
+				vars.pressedEnter = false;
+				if (vars.blueTank != null) {vars.blueTank.setHasFired(false);}
+				break;
+				
+			case 27:
+				vars.paused = !vars.paused;
+				break;
+		}
+	}
+}

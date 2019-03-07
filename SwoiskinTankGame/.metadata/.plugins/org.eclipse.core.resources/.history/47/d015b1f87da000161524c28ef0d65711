@@ -1,0 +1,69 @@
+package shortestPath;
+
+public class Temp
+{
+	static int[][] list;
+	static String[] cityNames;
+	static String[] shortestPath;
+	
+	public static void main(String[] args)
+	{
+		populateMatrix();
+		NNalgo();
+	}
+	
+	public static void NNalgo()
+	{
+		int currentShortest = Integer.MAX_VALUE;
+		
+		// loop to find a short path
+	}
+	
+	public static void populateMatrix()
+	{
+		cityNames = new String[]{"A", "B", "C"};
+		shortestPath = new String[cityNames.length];
+		list = new int[cityNames.length][cityNames.length];
+		list[0][0] = 0;
+		list[0][1] = 1;
+		
+		list[1][0] = 2;
+		list[1][1] = 3;
+	}
+
+	public static int getDistance(String name1, String name2)
+	{
+		int spot1 = -1, spot2 = -1, distance = -1;
+		
+		for (int i=0;i<cityNames.length;i++)
+		{
+			if (cityNames[i].equals(name1))
+			{
+				spot1 = i;
+			}
+			else if (cityNames[i].equals(name2))
+			{
+				spot2 = i;
+			}
+		}
+		
+		if (spot1 > -1 && spot2 > -1)
+		{
+			distance = list[spot1][spot2];
+		}
+		
+		return distance;
+	}
+	
+	public static boolean arrayContains(String[] daList, String name)
+	{
+		for (int i=0;i<daList.length;i++)
+		{
+			if (daList[i].equals(name))
+				return true;
+		}
+		
+		return false;
+	}
+	
+}

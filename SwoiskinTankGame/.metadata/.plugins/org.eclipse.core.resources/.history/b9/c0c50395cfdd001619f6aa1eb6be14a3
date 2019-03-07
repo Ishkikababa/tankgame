@@ -1,0 +1,32 @@
+
+public class Line
+{
+	float x1, x2, y1, y2;
+	public Line(float gx1, float gy1, float gx2, float gy2)
+	{
+		this.x1 = gx1;
+		this.y1 = gy1;
+		this.x2 = gx2;
+		this.y2 = gy2;
+	}
+	
+	public float getX1()
+	{
+		return this.x1;
+	}	
+
+	public float getX2()
+	{
+		return this.x2;
+	}	
+
+	public float getY1()
+	{
+		return this.y1;
+	}	
+
+	public float getY2()
+	{
+		return this.y2;
+	}
+}

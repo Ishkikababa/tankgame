@@ -1,0 +1,17 @@
+package TankGame;
+
+public class Shrapnel extends Bullet
+{
+
+	public Shrapnel(double x, double y, double gtheta, String original)
+	{
+		super(x, y, gtheta, original);
+		this.bouncesLeft = 1;
+	}
+	
+	public Image getImage()
+	{
+		return vars.bombBulletImage;
+	}
+
+}

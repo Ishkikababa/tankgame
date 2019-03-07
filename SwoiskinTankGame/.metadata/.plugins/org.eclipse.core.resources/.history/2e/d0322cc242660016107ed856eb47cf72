@@ -1,0 +1,32 @@
+package TankGame;
+
+import java.awt.Image;
+
+public class Bullet implements GlobalConst
+{
+
+	private int myX, myY, myWidth, myHeight, bouncesLeft;
+	
+	public Bullet(int x, int y)
+	{
+		myX = x;
+		myY = y;
+		myWidth = gameVar.missileImage.getWidth(null);
+		myHeight = gameVar.missileImage.getHeight(null);
+		bouncesLeft = NUM_BULLET_BOUNCES;
+	}
+	
+	
+	
+	public int xPos()
+	{
+		return myX;
+	}
+	
+	public int yPos()
+	{
+		return myY;
+	}
+
+	
+}

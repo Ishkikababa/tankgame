@@ -1,0 +1,77 @@
+package shortestPath;
+
+public class MyMatrix
+{
+	private static int[][] list;
+	private static int[] usedNumbers;
+	private static String[] cityNames;
+	private static String[] shortestPath;
+	
+	public MyMatrix()
+	{	
+	}
+	
+	public static void CLalgo()
+	{
+		for (int m=0;m<list.length;m++)
+		{
+			int currentShortest = Integer.MAX_VALUE;
+			for (int i=0;i<list.length;i++)
+			{
+				for (int j=0;j<list.length;j++)
+				{
+					if (list[i][j] < currentShortest && arrayContains(usedNumbers, i) < 2 && arrayContains(usedNumbers, j) < 2)
+				}
+			}
+		}
+	}
+	
+	public static void populate()
+	{
+		cityNames = new String[]{"A", "B", "C"};
+		shortestPath = new String[cityNames.length];
+		list = new int[cityNames.length][cityNames.length];
+		list[0][0] = 0;
+		list[0][1] = 1;
+		
+		list[1][0] = 2;
+		list[1][1] = 3;
+	}
+	
+	private static int getDistance(String name1, String name2)
+	{
+		int spot1 = -1, spot2 = -1, distance = -1;
+		
+		for (int i=0;i<cityNames.length;i++)
+		{
+			if (cityNames[i].equals(name1))
+			{
+				spot1 = i;
+			}
+			else if (cityNames[i].equals(name2))
+			{
+				spot2 = i;
+			}
+		}
+		
+		if (spot1 > -1 && spot2 > -1)
+		{
+			distance = list[spot1][spot2];
+		}
+		
+		return distance;
+	}
+	
+	private static int arrayContains(String[] daList, String name)
+	{
+		int instances = 0;
+		for (int i=0;i<daList.length;i++)
+		{
+			if (daList[i].equals(name))
+				instances++;
+		}
+		
+		return instances;
+	}
+	
+}

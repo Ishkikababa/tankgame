@@ -1,0 +1,31 @@
+import java.util.ArrayList;
+import gpdraw.DrawingTool;
+import gpdraw.SketchPad;
+
+public class CantorSet
+{
+	SketchPad pad = new SketchPad(500, 500);
+	DrawingTool pen = new DrawingTool(pad);
+	
+	ArrayList<Line> l = new ArrayList<Line>;
+	
+	public CantorSet()
+	{
+		pen.up();
+		pen.move(-200, 200);
+		pen.down();
+		pen.setWidth(4);
+		pen.setDirection(0);
+	}
+	
+	public void drawC(int level, int length)
+	{
+		pen.down();
+		float cX = (float) pen.getXPos();
+		float cY = (float) pen.getYPos();
+		if (level > 0)
+		{
+			
+		}
+	}
+}

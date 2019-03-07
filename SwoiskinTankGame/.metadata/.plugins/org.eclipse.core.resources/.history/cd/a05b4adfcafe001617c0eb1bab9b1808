@@ -1,0 +1,24 @@
+package TankGame;
+
+public class node
+{
+	private int x, y, bagNum;
+
+	public node(int i, int j, int nBagNum)
+	{
+		x = i;
+		y = j;
+		bagNum = nBagNum;
+	}
+	
+	public int bag()
+	{
+		return bagNum;
+	}
+	
+	public void setBag(int n)
+	{
+		bagNum = n;
+	}
+
+}

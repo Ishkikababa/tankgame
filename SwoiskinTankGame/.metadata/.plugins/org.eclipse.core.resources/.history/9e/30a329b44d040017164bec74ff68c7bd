@@ -1,0 +1,54 @@
+package TankGame;
+
+import java.awt.Image;
+
+public class Missile implements GlobalConst
+{
+	private int missileWidth;
+	private int missileHeight;
+	private int missileXPos;
+	private int missileYPos;
+
+	// Constructor
+	public Missile(int xPos, int yPos)
+	{
+		missileWidth = gameVar.missileImage.getWidth(null);
+		missileHeight = gameVar.missileImage.getHeight(null);
+		missileXPos = xPos;
+		missileYPos = yPos;
+	}
+
+	// Move the missile 'MISSILE_SPEED' pixels up the playing field
+	public void moveMissile()
+	{
+		if (missileYPos < 0 - missileHeight)
+			missiles.remove(this);
+		else
+			missileYPos -= MISSILE_SPEED;
+	}
+
+	public Image getMissileImage()
+	{
+		return gameVar.missileImage;
+	}
+
+	public int getWidth()
+	{
+		return missileWidth;
+	}
+
+	public int getHeight()
+	{
+		return missileHeight;
+	}
+
+	public int getX()
+	{
+		return missileXPos;
+	}
+
+	public int getY()
+	{
+		return missileYPos;
+	}
+}

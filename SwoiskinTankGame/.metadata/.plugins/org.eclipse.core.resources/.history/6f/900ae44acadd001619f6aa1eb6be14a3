@@ -1,0 +1,13 @@
+import gpdraw.DrawingTool;
+import gpdraw.SketchPad;
+
+public class CantorSet
+{
+	SketchPad pad = new SketchPad(500, 500);
+	DrawingTool pen = new DrawingTool(pad);
+	
+	public CantorSet()
+	{
+		
+	}
+}

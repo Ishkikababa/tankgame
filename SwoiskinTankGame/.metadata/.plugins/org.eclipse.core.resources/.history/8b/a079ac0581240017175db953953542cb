@@ -1,0 +1,14 @@
+package TankGame;
+
+// i can't figure out how to make real buttons work so i'm making my own. deal with it.
+public class myButton
+{
+	private int x, y, w, h;
+	public myButton(int x, int y, int w, int h)
+	{
+		this.x = x;
+		this.y = y;
+		this.w = w;
+		this.h = h;
+	}
+}

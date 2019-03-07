@@ -1,0 +1,293 @@
+// Aaron Swoiskin
+// 1/17/17  10:50 pm
+// Programming 5-6
+
+import java.awt.*;
+import java.util.ArrayList;
+
+import gpdraw.DrawingTool;
+import gpdraw.SketchPad;
+
+public class Fractal
+{
+	SketchPad pad = new SketchPad(1200, 1200);
+	DrawingTool pen = new DrawingTool(pad);
+	ArrayList<String> d = new ArrayList<String>();
+	
+	public Fractal()
+	{
+		pen.up();
+		pen.move(0,0);
+		pen.down();
+		pen.setDirection(0);
+	}
+	
+	public void drawWeirdSierpinski(int reps, Point[] t)
+	{		
+		pen.up();
+		pen.move(t[0].x(), t[0].y());
+		pen.down();
+		pen.move(t[1].x(), t[1].y());
+		pen.move(t[2].x(), t[2].y());
+		pen.move(t[0].x(), t[0].y());
+		
+
+		
+		pen.setWidth(1);
+		int last = 0;
+		int rnd = 0;
+		for (int i=0;i<reps;i++)
+		{
+			pen.up();
+//			do
+//			{
+				rnd = (int)Math.floor(Math.random()*3);
+//			}	
+//			while (rnd == last);
+			last = rnd;
+			Point n = t[rnd];
+			pen.move((n.x() + pen.getXPos())/(2), 
+						(n.y() + pen.getYPos())/(2));
+			pen.down();
+			pen.drawCircle(.5);
+		}
+	}
+	
+	//sponge
+	public void drawSponge(int level, float length)
+	{
+		for (int i=0;i<3;i++)
+		{
+			for (int j=0;j<3;j++)
+			{
+				pen.up();
+				if (i==1 && j==1)
+				{
+					rect(length/3, length/3);
+				}
+				else if (level>0)
+				{
+					double bx = pen.getXPos();
+					double by = pen.getYPos();
+					drawSponge(level-1,length/3);
+					pen.move(bx, by);
+				}
+				pen.move(pen.getXPos(), pen.getYPos()-(length/3));
+			}
+			pen.move(pen.getXPos()+(length/3), pen.getYPos()+length);
+		}
+	}
+	
+	public void rect(float w, float h)
+	{
+		pen.down();
+		pen.setDirection(0);
+		pen.forward(w);
+		pen.turnRight(90);
+		pen.forward(h);
+		pen.turnRight(90);
+		pen.forward(w);
+		pen.turnRight(90);
+		pen.forward(h);
+		pen.turnRight(90);
+		pen.up();
+	}
+
+	// hilbert set
+	//????
+	
+	// dragon curve
+	public void drawDragon(int level, float length, String s, String c)
+	{
+		pen.down();
+		popD(level, s);
+		
+		for (int i=0;i<d.size();i++)
+		{			
+//			if (i<d.size()/6)
+//				pen.setColor(Color.RED);
+//			else if (i<d.size()*2/6)
+//				pen.setColor(Color.ORANGE);
+//			else if (i<d.size()*3/6)
+//				pen.setColor(Color.YELLOW);
+//			else if (i<d.size()*4/6)
+//				pen.setColor(Color.GREEN);
+//			else if (i<d.size()*5/6)
+//				pen.setColor(Color.BLUE);
+//			else
+//				pen.setColor(Color.MAGENTA);
+			
+			switch(c) {
+				case "RED":
+					pen.setColor(Color.RED);
+					break;
+				case "ORANGE":
+					pen.setColor(Color.ORANGE);
+					break;
+				case "YELLOW":
+					pen.setColor(Color.YELLOW);
+					break;
+				case "GREEN":
+					pen.setColor(Color.GREEN);
+					break;
+				case "BLUE":
+					pen.setColor(Color.BLUE);
+					break;
+				case "MAGENTA":
+					pen.setColor(Color.MAGENTA);
+					break;
+				case "BLACK":
+					pen.setColor(Color.CYAN);
+				case "GRAY":
+					pen.setColor(Color.CYAN);
+			}
+			
+			pen.forward(length);
+			if (d.get(i).equals("r"))
+			{
+				pen.turnRight(90);
+			}
+			else
+			{
+				pen.turnLeft(90);
+			}
+		}
+		d.clear();
+
+		pen.up();
+		pen.move(0, 0);
+		pen.down();
+		
+		if (s.equals("r"))
+			pen.turnRight(90);
+		else
+			pen.turnLeft(90);
+	}
+	
+	private void popD(int level, String s)
+	{
+		d.add(s);
+		for (int i=0;i<level;i++)
+		{
+			//printD();
+			slice();
+		}
+	}
+	
+	private void slice()
+	{
+		for (int i=0;i<d.size();i+=2)
+		{
+			d.add(i, "r");
+			i+=2;
+			d.add(i, "l");
+		}
+	}
+	
+	private void printD()
+	{
+		for (int i=0;i<d.size();i++)
+		{
+			System.out.print(d.get(i));
+		}
+		System.out.println();
+	}
+	
+	// koch snowflake with sierpinski
+	public void drawSpecialK(int level, float length)
+	{
+		double x = pen.getXPos();
+		double y = pen.getYPos();
+		double d = pen.getDirection();
+					
+		//drawKochCurve(depth-1, width/3);
+
+		// special
+		x = pen.getXPos();
+		y = pen.getYPos();
+		d = pen.getDirection();
+		
+		pen.setDirection(300 + d);
+		drawSierpinski(level, length);
+		pen.move(x, y);
+		pen.setDirection(d);
+		
+		drawKochCurve(level, length);
+		pen.turnRight(120);
+		drawKochCurve(level, length);
+		pen.turnRight(120);
+		drawKochCurve(level, length);
+		pen.turnRight(120);
+	}
+	
+	private void drawKochCurve(int depth, float width)
+	{	
+		if (depth < 1)
+			pen.forward(width);
+		else
+		{
+			double x = pen.getXPos();
+			double y = pen.getYPos();
+			double d = pen.getDirection();
+						
+			drawKochCurve(depth-1, width/3);
+
+			// special
+			x = pen.getXPos();
+			y = pen.getYPos();
+			d = pen.getDirection();
+			drawSierpinski(depth, width/3);
+			pen.move(x, y);
+			pen.setDirection(d);
+			
+			pen.turnLeft(60);
+			
+			drawKochCurve(depth-1, width/3);
+
+			pen.turnRight(120);
+			
+			drawKochCurve(depth-1, width/3);
+			
+			pen.turnLeft(60);
+			
+			drawKochCurve(depth-1, width/3);
+			
+		}
+	}
+	
+	// sierpinski triangle
+	public void drawSierpinski(int level, float length)
+	{
+		drawSide(level, length);
+	
+		pen.turnLeft(120);
+		pen.forward(length);
+		pen.turnLeft(120);
+		pen.forward(length);
+	}
+	
+	private void drawSide(int level, float length)
+	{
+		if (level > 0)
+		{
+			pen.forward(length/2);
+			
+			pen.turnLeft(120);
+			drawSide(level-1, length/2);
+			
+			pen.turnRight(120);
+			drawSide(level-1, length/2);
+			
+			pen.turnRight(120);
+			drawSide(level-1, length/2);
+			
+			pen.turnLeft(120);
+			
+			pen.forward(length/2);
+		}
+		else
+		{
+			pen.forward(length);
+		}
+	}
+}

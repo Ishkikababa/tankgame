@@ -1,0 +1,97 @@
+package TankGame;
+
+import java.awt.Image;
+
+public class Wall implements GlobalConst
+{
+	private int myX, myY, myWidth, myHeight, hUnits, vUnits;
+	private WallUnit[][] myUnits;
+	private String myOrientation;
+
+	public Wall(int gX, int gY, int gW, int gH)
+	{
+		myX = gX;
+		myY = gY;
+		myWidth = gW;
+		myHeight = gH;
+		
+		hUnits = gW / WALL_UNIT_WIDTH;
+		vUnits = gH / WALL_UNIT_WIDTH;
+		
+		if (myWidth > myHeight)
+		{
+			myOrientation = "H";
+		}
+		else if (myWidth < myHeight)
+		{
+			myOrientation = "V";
+		}
+		else if (myWidth == myHeight)
+		{
+			myOrientation = "C";
+		}
+		myUnits = new WallUnit[hUnits][vUnits];
+		setUnits();
+	}
+	
+	private void setUnits()
+	{
+		for (int i=0;i<hUnits;i++)
+		{
+			for (int j=0;j<vUnits;j++)
+			{
+				myUnits[i][j] = new WallUnit(myX + WALL_UNIT_WIDTH*i, myY + WALL_UNIT_WIDTH*j, myOrientation);
+			}
+		}
+	}
+	
+	public int getX()
+	{
+		return myX;
+	}
+	
+	public int getY()
+	{
+		return myY;
+	}
+	
+	public int getWidth()
+	{
+		return myWidth;
+	}
+	
+	public int getHeight()
+	{
+		return myHeight;
+	}
+	
+	public int getNumHUnits()
+	{
+		return hUnits;
+	}
+	
+	public int getNumVUnits()
+	{
+		return vUnits;
+	}
+	
+	public WallUnit getUnit(int i, int j)
+	{
+		return myUnits[i][j];
+	}
+	
+	public myShape getShape()
+	{
+		Vector2D UR = new Vector2D(myX + myWidth, myY);
+		Vector2D UL = new Vector2D(myX, myY);
+		Vector2D DR = new Vector2D(myX + myWidth, myY + myHeight);
+		Vector2D DL = new Vector2D(myX, myY + myHeight);
+		
+		return new myShape(UR, UL, DR, DL);
+	}
+	
+	public String getOrientation()
+	{
+		return myOrientation;
+	}
+}

@@ -1,0 +1,34 @@
+package TankGame;
+
+public class myShape
+{
+	private Point myur, myul, mydr, mydl;
+	
+	public myShape(Point ur, Point ul, Point dr, Point dl)
+	{
+		myur = ur; 
+		myul = ul;
+		mydr = dr;
+		mydl = dl;
+	}
+		
+	public Point UR()
+	{
+		return myur;
+	}
+	
+	public Point UL()
+	{
+		return myul;
+	}
+	
+	public Point DR()
+	{
+		return mydr;
+	}
+	
+	public Point DL()
+	{
+		return mydl;
+	}
+}

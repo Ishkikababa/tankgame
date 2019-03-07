@@ -1,0 +1,14 @@
+import java.util.Scanner;
+
+public class test
+{
+	public static void main(String[] args)
+	{
+		Triangle t = new Triangle();
+
+		t.drawD(4,500,"r");
+//
+//		CantorSet c = new CantorSet();
+//		c.drawC(10, 400);
+	}
+}

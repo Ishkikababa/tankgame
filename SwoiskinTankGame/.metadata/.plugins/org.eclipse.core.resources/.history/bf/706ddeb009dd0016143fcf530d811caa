@@ -1,0 +1,14 @@
+import java.util.Scanner;
+
+public class test
+{
+	public static void main(String[] args)
+	{
+		KochCurve curvy = new KochCurve();
+
+		for (int i=1;i<5; i++)
+		{
+			curvy.drawSnowFlake(i, 400);
+		}
+	}
+}

@@ -1,0 +1,84 @@
+package TankGame;
+
+import java.awt.*;
+import java.awt.geom.AffineTransform;
+import java.awt.image.AffineTransformOp;
+
+import javax.swing.*;
+
+// This class, with a default (empty) constructor, creates a JPanel,
+//  which is added to the JFrame in the 'Game' class, thereby enabling
+//  a background Image (as opposed to just a single-color background)
+//  to be placed under the graphics objects (shooter, aliens, missiles)
+public class GamePanel extends JPanel implements GlobalConst
+{
+	private Font font = new Font("Helvetica", Font.BOLD, 24);
+	private FontMetrics metrics = this.getFontMetrics(font);
+
+	// This method handles the painting/drawing of all Images for this
+	//  program; the Images are drawn onto a JPanel, which is displayed
+	//  on a JFrame; note that an Image is "removed" from the JPanel by
+	//  simply not having it redrawn by this method
+	public void paintComponent(Graphics g)
+	{
+		super.paintComponent(g);
+
+		// This line causes graphics and text to be rendered with anti-aliasing
+		//  turned on, making the overall display look smoother and cleaner
+		((Graphics2D) g).setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+		// Draw the background for the JPanel
+		
+		// CHANGED TO WHITE TEMPORARILY (????)
+		//g.drawImage(gameVar.backgroundImage, 0, 0, null);
+		
+		// Draw the shooter
+		//g.drawImage(gameVar.shooterImage, gameVar.shooterX, gameVar.shooterY, this);
+		
+		//draw tanks, red uses Math.round();
+		AffineTransform redT = new AffineTransform();
+		int rx = (int)gameVar.redTankX;// + (gameVar.redTankImage.getWidth(null)/2);
+		int ry = (int)gameVar.redTankY;// + (gameVar.redTankImage.getHeight(null)/2);
+		
+		redT.setToRotation(Math.toRadians(gameVar.redDirection), rx, ry);
+		System.out.println(rx + ", " + gameVar.redTankX);
+		System.out.println(ry + ", " + gameVar.redTankY);
+		AffineTransformOp redOp = new AffineTransformOp(redT, AffineTransformOp.TYPE_BILINEAR);
+		
+		g.drawImage(redOp.filter(gameVar.redTankImage, null), (int) gameVar.redTankX, (int) gameVar.redTankY, null);
+		g.drawOval((int)rx, (int)ry,(int) gameVar.redTankImage.getWidth(), (int)gameVar.redTankImage.getHeight());
+		g.drawImage(gameVar.greenTankImage, (int)gameVar.greenTankX, (int)gameVar.greenTankY, this);
+		
+		// Draw the aliens
+		for (int i = 0; i < aliens.size(); i++)
+		{
+			Alien alien = aliens.get(i);
+			g.drawImage(alien.getAlienImage(), alien.getX(), alien.getY(), this);
+		}
+
+		// Draw the missiles
+		for (int i = 0; i < missiles.size(); i++)
+		{
+			Missile missile = missiles.get(i);
+			g.drawImage(missile.getMissileImage(), missile.getX(), missile.getY(), this);
+		}
+
+		// If all of the aliens have been destroyed, display a "game over" message
+//		
+//		if (gameVar.gameOver)
+//		{
+//			String message = "Game Over!";
+//			g.setColor(Color.YELLOW);
+//			g.setFont(font);
+//			g.drawString(message, (getWidth() - metrics.stringWidth(message)) / 2, getHeight() / 2);
+//		}
+
+		// This line synchronizes the graphics state by flushing buffers containing
+		//  graphics events and forcing the frame drawing to happen now; otherwise,
+		//  it can sometimes take a few extra milliseconds for the drawing to take
+		//  place, which can result in jerky graphics movement; this line ensures
+		//  that the display is up-to-date; it is useful for animation, since it
+		//  reduces or eliminates flickering
+		Toolkit.getDefaultToolkit().sync();
+	}
+}

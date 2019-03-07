@@ -1,0 +1,29 @@
+package shortestPath;
+
+public class Path
+{
+
+	private String a, b;
+	private int d;
+	public Path(String a, String b, int d)
+	{
+		this.a = a;
+		this.b = b;
+		this.d = d;
+	}
+	
+	public String start()
+	{
+		return a;
+	}
+	
+	public String end()
+	{
+		return b;
+	}
+	
+	public int distance()
+	{
+		return d;
+	}
+}

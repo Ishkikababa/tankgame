@@ -1,0 +1,306 @@
+package TankGame;
+
+import java.awt.*;
+import java.awt.geom.AffineTransform;
+
+import javax.swing.*;
+
+// This class, with a default (empty) constructor, creates a JPanel,
+//  which is added to the JFrame in the 'Game' class, thereby enabling
+//  a background Image (as opposed to just a single-color background)
+//  to be placed under the graphics objects (shooter, aliens, missiles)
+public class GamePanel extends JPanel implements GlobalConst
+{
+	private Font helvetica = new Font("Helvetica", Font.BOLD, 36);
+	private Font helvetica2 = new Font("Helvetica", Font.BOLD, 10);
+	private Font helvetica3 = new Font("Helvetica", Font.BOLD, 20);
+	private Font helveticaBig = new Font("Helvetica", Font.BOLD, 80);
+	private FontMetrics metrics = this.getFontMetrics(helvetica);
+
+	int iconWidth = 60, iconHeight = 60, buff = 6, keyWidth = 20;
+	
+	Color tempF, tempB;
+	
+	Color myGreen = new Color(64, 186, 14);
+	Color myOrange = new Color(241, 109, 14);
+
+	// This method handles the painting/drawing of all Images for this
+	//  program; the Images are drawn onto a JPanel, which is displayed
+	//  on a JFrame; note that an Image is "removed" from the JPanel by
+	//  simply not having it redrawn by this method
+	public void paintComponent(Graphics g)
+	{
+		super.paintComponent(g);
+		
+		// Start Screen
+		g.setColor(new Color(200, 200, 200));
+		g.fillRect(0, 0, vars.fieldWidth + 16, vars.fieldHeight + vars.scoreBoardHeight + 16);
+		g.setFont(helvetica2);
+		
+		if (vars.startScreenActive)
+		{
+			boolean borderOn = false;
+			
+			vars.tanksToAdd.clear();
+			
+			borderOn = vars.pressedSpace;
+			makeSprite(vars.fieldWidth/2 - 60 - iconWidth, 30, Color.RED, borderOn, g);
+			drawKeys(vars.fieldWidth/2 - 70 - iconWidth/2, 30 + iconWidth +10, "W", "S", "A", "D", "SPACE", g);
+			if (borderOn)
+				vars.tanksToAdd.add("RED");
+			
+			borderOn = vars.pressedZero;
+			makeSprite(vars.fieldWidth/2 + 60, 30, myGreen, borderOn, g);
+			drawKeys(vars.fieldWidth/2 + 48 + iconWidth/2, 30 + iconWidth + 10, "↑", "↓", "←", "→", "0", g);
+			if (borderOn)
+				vars.tanksToAdd.add("GREEN");
+			
+			borderOn = vars.pressedSemi;
+			makeSprite(vars.fieldWidth/2 - 60 - iconWidth, 200, myOrange, borderOn,  g);
+			drawKeys(vars.fieldWidth/2 - 70 - iconWidth/2, 200 + iconWidth +10, "I", "K", "J", "L", ";", g);
+			if (borderOn)
+				vars.tanksToAdd.add("ORANGE");
+	
+			borderOn = vars.pressedEnter;
+			makeSprite(vars.fieldWidth/2 + 60, 200, Color.BLUE, borderOn, g);
+			drawKeys(vars.fieldWidth/2 + 48 + iconWidth/2, 200 + iconWidth +10, "4", "5", "2", "8", "ENTER", g);
+			if (borderOn)
+				vars.tanksToAdd.add("BLUE");
+			
+			g.setColor(Color.BLACK);
+			g.setFont(helvetica3);
+			g.drawString("PRESS THE SHOOT KEYS TO SELECT.", 20, vars.fieldHeight + 20);
+			g.drawString("BACKSPACE TO START (>2 TANKS)", 30, vars.fieldHeight + 50);
+		}
+		else if (vars.startTimer > 0)
+		{
+			if (vars.startTimer%100 == 99)
+			{
+				tempF = new Color(rand(0, 255), rand(0, 255), rand(0, 255));
+				tempB = new Color(rand(0, 255), rand(0, 255), rand(0, 255));
+			}
+			g.setColor(tempF);
+			g.fillRect(0, 0, vars.fieldWidth + 16, vars.fieldHeight + vars.scoreBoardHeight + 16);
+
+			
+			g.setColor(tempB);
+			g.setFont(helveticaBig);
+			g.drawString(Integer.toString(vars.startTimer/100 + 1), 180, 200);
+		}
+		
+		if (!vars.gameOn)
+			return;
+		
+		g.setColor(Color.WHITE);
+		g.fillRect(0, 0, vars.fieldWidth, vars.fieldHeight);
+		
+		g.setColor(Color.LIGHT_GRAY);
+		g.fillRect(0, vars.fieldHeight, vars.fieldWidth*2, vars.scoreBoardHeight);
+
+		// This line causes graphics and text to be rendered with anti-aliasing
+		//  turned on, making the overall display look smoother and cleaner
+		((Graphics2D) g).setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+		// Draw the background for the JPanel
+		
+		// CHANGED TO WHITE TEMPORARILY (????)
+		//g.drawImage(vars.backgroundImage, 0, 0, null);
+		
+		// Draw the shooter
+		//g.drawImage(vars.shooterImage, vars.shooterX, vars.shooterY, this);
+		
+		//draw tanks
+		Graphics2D g2d = (Graphics2D) g;
+		for (Tank t : vars.tanks)
+		{			
+			AffineTransform trans = new AffineTransform();
+			trans.setToTranslation(t.x(), t.y());
+			trans.translate(t.image().getWidth()/2, t.image().getHeight()/2);
+			trans.rotate(Math.toRadians(t.direction()));
+			trans.translate(-t.image().getWidth()/2, -t.image().getHeight()/2);
+			
+			g2d.drawImage(t.image(), trans, null);
+		}
+		
+		// Draw the bullets
+		for (int i = 0; i< bullets.size(); i++)
+		{
+			Bullet bullet = bullets.get(i);
+			g.drawImage(bullet.getImage(), (int)bullet.getX(), (int)bullet.getY(), this);
+		}
+		
+		// Draw the powerups
+		g.setColor(Color.BLUE);
+		for (Powerup p : powerups)
+		{
+			g.fillRect(p.getX(), p.getY(), p.getWidth(), p.getHeight());
+		}
+		
+		// Draw Walls
+		for (Wall wall : walls)
+		{
+			// Set color based on Vertical/Horizontal/Corner
+			if (wall.getOrientation().equals("V"))
+				g.setColor(Color.RED);
+			else if (wall.getOrientation().equals("H"))
+				g.setColor(Color.BLUE);
+			else if (wall.getOrientation().equals("C"))
+				g.setColor(Color.GREEN);
+			else
+				g.setColor(Color.BLACK);
+			
+			g.fillRect(wall.getX(), wall.getY(), wall.getWidth(), wall.getHeight());
+		}		
+	
+		// Draw each tank's scores
+		int y;
+		if (vars.tanks.size() > 0)
+		{
+			g.setFont(helvetica);
+			
+//			g.setColor(Color.BLACK);
+//			g.drawString(Integer.toString(vars.tanks.get(0).getScore()), 10-1, vars.fieldHeight + 40 +1);
+//			
+			g.setColor(vars.tanks.get(0).drawColor());
+			g.drawString(Integer.toString(vars.tanks.get(0).getScore()), 10, vars.fieldHeight + 40);
+			y = vars.fieldHeight + 40;
+			g.setFont(helvetica2);
+			for (TankPower t : vars.tanks.get(0).getPowers())
+			{
+				y+=16;
+				g.drawString(t.toString(), 10, y);
+			}
+		}
+		if (vars.tanks.size() > 1)
+		{	g.setFont(helvetica);
+			g.setColor(vars.tanks.get(1).drawColor());
+			g.drawString(Integer.toString(vars.tanks.get(1).getScore()), vars.fieldWidth - 20, vars.fieldHeight + 40);
+			y = vars.fieldHeight + 40;
+			g.setFont(helvetica2);
+			for (TankPower t : vars.tanks.get(1).getPowers())
+			{
+				y+=16;
+				g.drawString(t.toString(), vars.fieldWidth - 70, y);
+			}
+		}
+		if (vars.tanks.size() > 2)
+		{
+			g.setFont(helvetica);
+			g.setColor(vars.tanks.get(2).drawColor());
+			g.drawString(Integer.toString(vars.tanks.get(2).getScore()), 10, vars.fieldHeight + vars.scoreBoardHeight/2);
+			y = vars.fieldHeight + 150;
+			g.setFont(helvetica2);
+			for (TankPower t : vars.tanks.get(2).getPowers())
+			{
+				y+=16;
+				g.drawString(t.toString(), 10, y);
+			}
+		}
+		if (vars.tanks.size() > 3)
+		{
+			g.setFont(helvetica);
+			g.setColor(vars.tanks.get(3).drawColor());
+			g.drawString(Integer.toString(vars.tanks.get(3).getScore()), vars.fieldWidth - 20, vars.fieldHeight + vars.scoreBoardHeight/2);
+			y = vars.fieldHeight + 150;
+			g.setFont(helvetica2);
+			for (TankPower t : vars.tanks.get(3).getPowers())
+			{
+				y+=16;
+				g.drawString(t.toString(), vars.fieldWidth - 70, y);
+			}
+		}
+		
+		if (vars.winTextTime > 0)
+		{
+			g.setColor(Color.BLACK);
+			g.setFont(helvetica);
+			g.drawString(vars.winner + " WINS", vars.fieldWidth/2 - 152, vars.fieldHeight/2 - 28);
+			
+			if (vars.winner.equals("RED TANK"))
+				g.setColor(Color.RED);
+			else if (vars.winner.equals("GREEN TANK"))
+				g.setColor(Color.GREEN);
+			else if (vars.winner.equals("ORANGE TANK"))
+				g.setColor(Color.ORANGE);
+			else if (vars.winner.equals("BLUE TANK"))
+				g.setColor(Color.BLUE);
+
+			
+			g.drawString(vars.winner + " WINS", vars.fieldWidth/2 - 150, vars.fieldHeight/2 - 30);
+		}
+		
+		try	
+		{
+			g.setColor(Color.CYAN);
+			g.drawLine((int)vars.redTank.shape().UR().getX(), (int)vars.redTank.shape().UR().getY(), (int)vars.redTank.shape().UL().getX(), (int)vars.redTank.shape().UL().getY());
+			g.drawLine((int)vars.redTank.shape().UL().getX(), (int)vars.redTank.shape().UL().getY(), (int)vars.redTank.shape().DL().getX(), (int)vars.redTank.shape().DL().getY());
+			g.drawLine((int)vars.redTank.shape().DL().getX(), (int)vars.redTank.shape().DL().getY(), (int)vars.redTank.shape().DR().getX(), (int)vars.redTank.shape().DR().getY());
+			g.drawLine((int)vars.redTank.shape().DR().getX(), (int)vars.redTank.shape().DR().getY(), (int)vars.redTank.shape().UR().getX(), (int)vars.redTank.shape().UR().getY());
+		
+			g.setColor(Color.RED);
+			g.drawLine((int)vars.tankTemp.UR().getX(), (int)vars.tankTemp.UR().getY(), (int)vars.tankTemp.UL().getX(), (int)vars.tankTemp.UL().getY());
+			g.drawLine((int)vars.tankTemp.UL().getX(), (int)vars.tankTemp.UL().getY(), (int)vars.tankTemp.DL().getX(), (int)vars.tankTemp.DL().getY());
+			g.drawLine((int)vars.tankTemp.DL().getX(), (int)vars.tankTemp.DL().getY(), (int)vars.tankTemp.DR().getX(), (int)vars.tankTemp.DR().getY());
+			g.drawLine((int)vars.tankTemp.DR().getX(), (int)vars.tankTemp.DR().getY(), (int)vars.tankTemp.UR().getX(), (int)vars.tankTemp.UR().getY());
+			
+			
+			//g.drawRect((int)vars.badWall.UL().getX(), (int)vars.badWall.UL().getY(), (int)vars.badWall.getWidth(), (int)vars.badWall.getHeight());
+			
+		} catch (Exception e)
+		{
+		}
+		
+		// If all of the aliens have been destroyed, display a "game over" message
+//		
+//		if (vars.gameOver)
+//		{
+//			String message = "Game Over!";
+//			g.setColor(Color.YELLOW);
+//			g.setFont(font);
+//			g.drawString(message, (getWidth() - metrics.stringWidth(message)) / 2, getHeight() / 2);
+//		}
+
+		// This line synchronizes the graphics state by flushing buffers containing
+		//  graphics events and forcing the frame drawing to happen now; otherwise,
+		//  it can sometimes take a few extra milliseconds for the drawing to take
+		//  place, which can result in jerky graphics movement; this line ensures
+		//  that the display is up-to-date; it is useful for animation, since it
+		//  reduces or eliminates flickering
+		Toolkit.getDefaultToolkit().sync();
+	}	
+	
+	private void makeSprite(int x, int y, Color c, boolean d, Graphics g)
+	{
+		if (d)
+		{
+			g.setColor(Color.WHITE);
+			g.fillRect(x-buff, y-buff, iconWidth+2*buff, iconHeight+2*buff);
+		}
+		
+		g.setColor(c);
+		g.fillRect(x, y, iconWidth, iconHeight);
+	}
+	
+	private void drawKeys(int x, int y, String u, String d, String l, String r, String shoot, Graphics g)
+	{
+		g.drawRect(x, y, keyWidth, keyWidth);
+		g.drawString(u, x + keyWidth/4 + 2, y + keyWidth/2+4);
+		
+		g.drawRect(x-keyWidth-2, y+keyWidth+2, keyWidth, keyWidth);
+		g.drawString(l, x-keyWidth + keyWidth/4, y+keyWidth+2 + keyWidth/2+4);
+		
+		g.drawRect(x, y+keyWidth+2, keyWidth, keyWidth);
+		g.drawString(d, x + keyWidth/4 + 2, y+keyWidth+2 + keyWidth/2+4);
+
+		g.drawRect(x+keyWidth+2, y+keyWidth+2, keyWidth, keyWidth);
+		g.drawString(r, x+keyWidth+2 + keyWidth/4 + 2, y+keyWidth+2 + keyWidth/2+4);
+		
+		g.drawString("SHOOT: " + shoot, x - keyWidth*2 + 14, y + keyWidth*3 + 4);
+	}
+	
+	private int rand(int l, int h)
+	{
+		//inclusive
+		return (int)(Math.random()*((h+1)-l)) +l;
+	}
+}

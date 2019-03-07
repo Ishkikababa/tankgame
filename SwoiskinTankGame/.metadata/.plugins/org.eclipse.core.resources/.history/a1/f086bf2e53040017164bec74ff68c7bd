@@ -1,0 +1,1313 @@
+package TankGame;
+
+//disable under spawnPowerup()
+
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+import java.lang.Math;
+import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
+import java.util.concurrent.TimeUnit;
+
+public class Game extends KeyAdapter implements GlobalConst, ActionListener
+{
+	private JFrame gameFrame;
+	private GamePanel battlePanel;
+	private Timer timer;
+	
+	private boolean pressedLeft = false, pressedRight = false, pressedUp = false, pressedDown = false, 
+						 pressedA = false, pressedD = false, pressedW = false, pressedS = false,
+						 pressedSpace = false, pressedZero = false,
+				       redFired = false, greenFired = false,
+				       paused = false;
+	
+	private boolean controlKeyPressed = false;
+
+	public static void main(String[] args)
+	{
+		new Game();
+	}
+
+	// Constructor
+	public Game()
+	{
+		gameFrame = new JFrame();
+		battlePanel = new GamePanel();
+		gameFrame.getContentPane().add(battlePanel);
+
+		gameFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		gameFrame.setSize(vars.fieldWidth + 16, vars.fieldHeight + 16); // 16 for weird jframe buffer
+		gameFrame.setTitle("Tank Game");
+		gameFrame.setLocationRelativeTo(null);
+		//gameFrame.setResizable(false);
+		gameFrame.setFocusable(true);
+		
+		gameFrame.getContentPane().setBackground(Color.WHITE);
+
+		// Set up before, changed to tanks
+		//setUpShooter();
+		//setUpAliens();
+		
+		reset();
+		vars.redScore = vars.greenScore = 0;
+		
+		gameFrame.addKeyListener(this);
+		gameFrame.setVisible(true);
+
+		// Set (and start) a new Swing Timer to fire every 'TIMER_SPEED' milliseconds,
+		//  after an initial delay of 'TIMER_DELAY' milliseconds; this Timer, along
+		//  with the distance (number of pixels) that the aliens, missiles, and shooter
+		//  move with each cycle, controls how fast the objects move on the playing
+		//  field; note that if adding a "pause/unpause" feature to this game, the
+		//  value of the 'TIMER_DELAY' constant should probably be set to zero
+		timer = new Timer(TIMER_SPEED, this);
+		timer.setInitialDelay(TIMER_DELAY);
+		timer.start();
+	}
+
+	public void reset()
+	{
+		makeMaze();
+		setUpTanks();
+		resetNumbers();
+		resetPowerups();
+	}
+	
+	// http://weblog.jamisbuck.org/2011/1/3/maze-generation-kruskal-s-algorithm
+	public void makeMaze()
+	{
+		walls.clear();
+		ArrayList<Wall> tempWalls = new ArrayList<Wall>();
+		
+		vars.fieldWidth = 300 + 100*rand(0, 6);
+		vars.fieldHeight = 300 + 100*rand(0, 6);
+		
+		Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+		gameFrame.setSize(vars.fieldWidth + 16, vars.fieldHeight + 16);
+		gameFrame.setLocation((int)screenSize.getWidth()/2 - vars.fieldWidth/2,(int) screenSize.getHeight()/2 - vars.fieldHeight/2);
+		
+		int w = vars.fieldWidth/NODE_LENGTH + 100;
+		int h = vars.fieldHeight/NODE_LENGTH;
+		int[][] nodes = new int[w][h];
+		
+		boolean[][] vwalls = new boolean[w][h];
+		boolean[][] hwalls = new boolean[w][h];
+		
+		int index = 0;
+		for (int i=0;i<w;i++)
+		{
+			for (int j=0;j<h;j++)
+			{
+				//make a temp wall everywhere in between nodes in an array
+				vwalls[i][j] = true;
+				hwalls[i][j] = true;
+				nodes[i][j] = index;
+				index++;
+			}
+		}
+		
+		while(!mazeDone(nodes))
+		{
+			int rx = (int)(Math.random()*(w));
+			int ry = (int)(Math.random()*(h));
+			int rd = (int)(Math.random()*4); // random direction (n,s,e,w) to compare to
+
+			try
+			{
+				int a = nodes[rx][ry], b = -1;
+				switch(rd)
+				{
+					case 0:
+						b = nodes[rx][ry + 1];
+						break;
+					case 1:
+						b = nodes[rx][ry - 1];
+						break;
+					case 2:
+						b = nodes[rx + 1][ry];
+						break;
+					case 3:
+						b = nodes[rx - 1][ry];
+						break;
+				}
+				
+				if (a != b)
+				{
+					
+					if (rd == 0)
+						hwalls[rx][ry+1] = false;					
+					if (rd == 1)
+						hwalls[rx][ry] = false;					
+					if (rd == 2)
+						vwalls[rx+1][ry] = false;					
+					if (rd == 3)
+						vwalls[rx][ry] = false;
+					
+					updateBags(nodes, a, b);
+				}
+				
+			}
+			catch(Exception e)
+			{}
+		}
+		
+		//randomly remove t walls to prevent choke points 
+		int r = (int) Math.sqrt(w*h/2); // arbitrary method 
+		while (r > 0)
+		{
+			int rx = (int)(Math.random()*(w));
+			int ry = (int)(Math.random()*(h));
+			
+			if (vwalls[rx][ry])
+			{
+				vwalls[rx][ry] = false;
+				hwalls[rx][ry] = false;
+				r--;
+			}
+		}
+		
+		// add temp walls to real walls
+		for (int i=0;i<w;i++)
+		{
+			for (int j=0;j<h;j++)
+			{
+				if (vwalls[i][j])
+					tempWalls.add(new Wall(i*NODE_LENGTH, j*NODE_LENGTH, 10, NODE_LENGTH + 10));
+				if (hwalls[i][j])
+					tempWalls.add(new Wall(i*NODE_LENGTH, j*NODE_LENGTH, NODE_LENGTH + 10, 10));
+			}
+		}
+		
+		//makes corners
+		for (Wall t : tempWalls)
+		{
+			if (t.getOrientation().equals("V"))
+			{
+				walls.add(new Wall(t.getX(), t.getY(), t.getWidth(), 10));
+				walls.add(new Wall(t.getX(), t.getY() + 10, t.getWidth(), t.getHeight()-10));
+				walls.add(new Wall(t.getX(), t.getY() + t.getHeight() - 10, t.getWidth(), 10));
+			}
+			if (t.getOrientation().equals("H"))
+			{
+				walls.add(new Wall(t.getX(), t.getY(), 10, t.getHeight()));
+				walls.add(new Wall(t.getX() + 10, t.getY(), t.getWidth() - 10, t.getHeight()));
+				walls.add(new Wall(t.getX() + t.getWidth() - 10, t.getY(), 10, t.getHeight()));
+			}
+		}
+		
+		for (Wall wall : walls)
+		{
+			wall
+		}
+		
+		// border
+		walls.add(new Wall(0, 0, vars.fieldWidth, 10));
+		walls.add(new Wall(0, 0, 10, vars.fieldHeight));
+		walls.add(new Wall(0, vars.fieldHeight - 18, vars.fieldWidth, 10));
+		walls.add(new Wall(vars.fieldWidth, 0, 10, vars.fieldHeight));
+	}
+	
+	public void updateBags(int[][] n, int old, int nw)
+	{		
+		for (int i=0;i<n.length;i++)
+			for (int j=0;j<n[0].length;j++)
+				if (n[i][j] == old)
+					n[i][j] = nw;
+	}
+	
+	public boolean mazeDone(int[][] n)
+	{
+		for (int i=0;i<n.length-1;i++)
+			for (int j=0;j<n[0].length-1;j++)
+				if (n[i][j] != n[i+1][j] ||
+					 n[i][j] != n[i][j+1])
+					return false;
+		
+		return true;
+	}
+	
+	public void resetPowerups()
+	{
+		powerups.clear();
+		vars.redPowerups.clear();
+		vars.greenPowerups.clear();
+		vars.powerupCooldown = vars.powerupSpawnRate;
+	}
+	
+	public void resetNumbers()
+	{
+		//vars.redScore = vars.greenScore = 0;
+		vars.redBulletsLeft = vars.greenBulletsLeft = 5;
+		vars.redDirection = rand(0, 360);
+		vars.greenDirection = rand(0, 360);
+		bullets.clear();
+		
+		vars.redPowerups.clear();
+		vars.redMM = false;
+		vars.redInvuln = false;
+		vars.redSpeedModifier = 1;
+		
+		vars.greenPowerups.clear();
+		vars.greenMM = false;
+		vars.greenInvuln = false;
+		vars.greenSpeedModifier = 1;
+	}
+	
+	public void setUpTanks()
+	{
+		vars.redTankX = (int) (Math.random()*(vars.fieldWidth/NODE_LENGTH -1)) * NODE_LENGTH + vars.redTankImage.getWidth()*1.5;
+		vars.redTankY = (int) (Math.random()*(vars.fieldHeight/NODE_LENGTH -1)) * NODE_LENGTH  + vars.redTankImage.getHeight()*2;
+		do
+		{
+			vars.greenTankX = (int) (Math.random()*(vars.fieldWidth/NODE_LENGTH -1)) * NODE_LENGTH  + vars.greenTankImage.getWidth(null)*1.5;
+			vars.greenTankY = (int) (Math.random()*(vars.fieldHeight/NODE_LENGTH -1)) * NODE_LENGTH  + vars.greenTankImage.getHeight(null)*2;
+		} while(vars.greenTankX == vars.redTankX && vars.greenTankY == vars.redTankY);
+	}
+
+	public void actionPerformed(ActionEvent e)
+	{
+		if (paused)
+			return;
+		
+		if (vars.winTextTime > 0)
+		{
+			vars.winTextTime--;
+			if (vars.winTextTime < 1)
+				reset();
+			return;
+		}
+		
+		battlePanel.repaint();
+		//end game?
+		
+		checkTankMovement();
+		
+		if (pressedSpace && redFired == false)
+		{
+			if (vars.redMM || vars.redBulletsLeft > 0)
+			{
+				shoot("red");
+				if (!vars.redMM)
+					vars.redBulletsLeft--;
+			}
+		}
+		if (pressedZero && greenFired == false && vars.greenBulletsLeft > 0)
+		{
+			if (vars.greenMM || vars.greenBulletsLeft > 0)
+			{
+				shoot("green");
+				if (!vars.greenMM)
+					vars.greenBulletsLeft--;
+			}
+		}
+		
+		moveBullets();
+		
+		// Redraw/Update the playing field
+		battlePanel.repaint();
+		checkCollisions();
+		checkPowerups();
+	}
+	
+	public void checkPowerups()
+	{
+		if (vars.powerupCooldown > 0)
+		{
+			vars.powerupCooldown--;
+			if (vars.powerupCooldown < 1)
+			{
+				vars.powerupCooldown = vars.powerupSpawnRate;
+				spawnPowerup();
+			}
+		}
+		
+		try
+		{
+			for (int i=vars.redPowerups.size()-1;i>=0;i--)
+			{
+				tankPower t = vars.redPowerups.get(i);
+				if (t.getTimeRemaining() > 0)
+				{
+					t.tickDown(1);
+					if (t.getTimeRemaining() < 1)
+						vars.redPowerups.remove(t);
+				}
+				else
+					vars.redPowerups.remove(t);
+				
+				if (tankHasPowerup("red", "speed"))
+					vars.redSpeedModifier = 2;
+				else
+					vars.redSpeedModifier = 1;
+				
+				
+				if (tankHasPowerup("red", "invuln"))
+					vars.redInvuln = true;
+				else
+					vars.redInvuln = false;
+				
+				
+				if (tankHasPowerup("red", "missile massacre"))
+					vars.redMM = true;
+				else
+					vars.redMM = false;		
+			}
+			
+			for (int i=vars.greenPowerups.size()-1;i>=0;i--)
+			{
+				tankPower t = vars.greenPowerups.get(i);
+				if (t.getTimeRemaining() > 0)
+				{
+					t.tickDown(1);
+					if (t.getTimeRemaining() < 1)
+						vars.greenPowerups.remove(t);
+				}
+				else
+					vars.greenPowerups.remove(t);
+				
+				if (tankHasPowerup("green", "speed"))
+					vars.greenSpeedModifier = 2;
+				else
+					vars.greenSpeedModifier = 1;
+				
+				
+				if (tankHasPowerup("green", "invuln"))
+					vars.greenInvuln = true;
+				else
+					vars.greenInvuln = false;
+				
+				
+				if (tankHasPowerup("green", "missile massacre"))
+					vars.greenMM = true;
+				else
+					vars.greenMM = false;
+			}
+			
+		}
+		catch(Error e)
+		{
+			System.out.println("oops ya dumbfuck");
+		}
+	}
+	
+	public boolean tankHasPowerup(String t, String p)
+	{
+		if (t.equals("red"))
+		{
+			for (tankPower tp : vars.redPowerups)
+			{
+				if (tp.getType().equals(p))
+					return true;
+			}
+		}
+		else if (t.equals("green"))
+		{
+			for (tankPower tp : vars.greenPowerups)
+			{
+				if (tp.getType().equals(p))
+					return true;
+			}
+		}
+		return false;
+	}
+	
+	public void spawnPowerup()
+	{
+		if (!vars.powerupsOn)
+			return;
+		Powerup temp;
+		do
+		{
+			int x = (int)(Math.floor(Math.random() * vars.fieldWidth/40)*40) + 15;
+			int y = (int)(Math.floor(Math.random() * vars.fieldHeight/40)*40) + 15;
+			
+			temp = new Powerup(x,y);
+			//do-while to not collide with walls or dudes 
+		} while(collidesWithWalls(temp.getShape()) != null || shapeCollision(temp.getShape(), vars.redTankShape) ||
+					shapeCollision(temp.getShape(), vars.greenTankShape));
+		powerups.add(temp);
+	}
+	
+	public boolean collidesWithPowerups(myShape temp)
+	{
+		for (Powerup p : powerups)
+		{
+			if (shapeCollision(temp, p.getShape()))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public void checkTankMovement()
+	{
+		// all functions should pass/check "tank color"
+		// move red tank
+		if (pressedW)// && inBounds("red"))
+		{
+			moveTank("red", "w", TANK_SPEED);
+		}
+		if (pressedS)// && inBounds("red"))
+		{
+			moveTank("red", "s", TANK_SPEED);				
+		}
+		if (pressedD)// && inBounds("red"))
+		{
+			moveTank("red", "d", TANK_SPEED);
+		}
+		if (pressedA)// && inBounds("red"))
+		{
+			moveTank("red", "a", TANK_SPEED);
+		}
+		
+		//move green tank
+		if (pressedUp)
+		{
+			moveTank("green", "up", TANK_SPEED);
+		}
+		if (pressedDown)
+		{
+			moveTank("green", "down", TANK_SPEED);
+		}
+		if (pressedLeft)
+		{
+			moveTank("green", "left", TANK_SPEED);
+		}
+		if (pressedRight)
+		{
+			moveTank("green", "right", TANK_SPEED);
+		}
+	}
+	
+	public void moveBullets()
+	{
+		for (int i = 0; i< bullets.size(); i++)
+		{
+			//System.out.println(bullets.size());
+			Bullet bullet = bullets.get(i);
+			if (bullet.isDead())
+			{
+				if (bullet.getOwner().equals("red"))
+				{
+					vars.redBulletsLeft++;
+					if (vars.redBulletsLeft > 5)
+						vars.redBulletsLeft = 5;
+				}
+				else if (bullet.getOwner().equals("green"))
+				{
+					vars.greenBulletsLeft++;
+					if (vars.greenBulletsLeft > 5)
+						vars.greenBulletsLeft = 5;
+				}
+				
+				bullets.remove(i);
+			}
+			else
+			{
+				bullet.moveBullet();
+			}
+		}
+	}
+	
+	public Wall collidesWithWalls(myShape shape)
+	{
+		vars.badWall = null;
+		for (int i=0;i<walls.size();i++)
+		{
+			if (shapeCollision(walls.get(i).getShape(), shape))
+			{
+				vars.badWall = walls.get(i).getShape();
+				return walls.get(i);
+			}
+		}
+		return null;
+		
+		//		
+		//return the walls colliding/null and CHECK IF IT IS NULL YOU kind and thoughtful dudebro
+		//
+	}
+	
+	public boolean moveShapeOk(myShape temp, String direction, Double cos, Double sin)
+	{
+		//try to move a shape and return whether it collided with sumtin';
+		switch(direction)
+		{
+			case "f":
+				for (int i=0;i<4;i++) {
+					temp.getVector2D(i).setX(temp.getVector2D(i).getX() + cos);
+					temp.getVector2D(i).setY(temp.getVector2D(i).getY() + sin);
+				};
+				break;
+			case "b":
+				for (int i=0;i<4;i++) {
+					temp.getVector2D(i).setX(temp.getVector2D(i).getX() - cos);
+					temp.getVector2D(i).setY(temp.getVector2D(i).getY() - sin);
+				};
+				break;
+		}
+		
+		if (collidesWithWalls(temp) == null)
+			return true;
+		else
+			return false;
+	}	
+	
+	public boolean rotateShapeOk(myShape temp, String direction, Double angle)
+	{
+		//try to rotato potato a shape and return whether it collided with sumtin';
+		switch(direction)
+		{
+			case "l":
+				for (int i=0;i<4;i++)
+				{
+					//wtf divide by 180? 
+					temp.getVector2D(i).setPoint(rotatePoint(temp.getVector2D(i), findCenter(temp), Math.toRadians(-angle)));
+				}
+				break;
+			case "r":
+				for (int i=0;i<4;i++)
+				{
+					temp.getVector2D(i).setPoint(rotatePoint(temp.getVector2D(i), findCenter(temp), Math.toRadians(angle)));
+				}
+				break;
+		}
+		
+		if (collidesWithWalls(temp) == null)
+			return true;
+		else
+			return false;
+	}
+	
+	// I'm not sorry for the length of this method
+	public void moveTank(String t, String d, double speed)
+	{
+		int buffer = 2;
+		double angleBuffer = 1;
+		myShape temp;
+		Vector2D c;
+		double smoothBounceSpeed = 1;
+		
+		if (t.equals("red"))
+		{
+			double rcos = Math.cos(Math.toRadians(vars.redDirection)) * speed * vars.redSpeedModifier;
+			double rsin = Math.sin(Math.toRadians(vars.redDirection)) * speed * vars.redSpeedModifier;
+			temp = new myShape(vars.rul, vars.rur, vars.rdr, vars.rdl);
+			c = findCenter(temp);
+			vars.tankTemp = temp;
+			vars.tempCenter = c;
+			double tempAngle = vars.redDirection/180 + DIRECTION_INCREMENTER + angleBuffer;
+			
+			switch(d)
+			{
+				case "w":
+					if (moveShapeOk(temp, "f", rcos*buffer, rsin*buffer))
+					// pass "rcos * buffer" as speed
+					{
+						vars.redTankX += rcos;
+						vars.redTankY += rsin;
+					}
+					else
+					{
+						//moveShapeOk(temp, "b", rcos*buffer);
+						try
+						{
+						if (0 < vars.redDirection && vars.redDirection < 90 ||
+							 270 > vars.redDirection && vars.redDirection > 180)
+						{
+							if (collidesWithWalls(temp) != null && collidesWithWalls(temp).getOrientation().equals("H"))
+							{////////////////////////////////////////////////////////	
+								if (moveShapeOk(temp, "b", rcos*buffer, rsin*buffer))
+									moveTank("red", "s", smoothBounceSpeed);
+								if (rotateShapeOk(temp, "l", tempAngle))
+									moveTank("red", "a", smoothBounceSpeed);
+							}
+							else if (collidesWithWalls(temp) != null && collidesWithWalls(temp).getOrientation().equals("V"))
+							{
+								if (moveShapeOk(temp, "b", rcos*buffer, rsin*buffer))
+									moveTank("red", "s", smoothBounceSpeed);
+								if (rotateShapeOk(temp, "r", tempAngle))
+									moveTank("red", "d", smoothBounceSpeed);
+							}
+						}
+						else if (vars.redDirection > 270 || 180 > vars.redDirection && vars.redDirection > 90)
+						{
+							if (collidesWithWalls(temp) != null && collidesWithWalls(temp).getOrientation().equals("H"))
+							{
+								if (moveShapeOk(temp, "b", rcos*buffer, rsin*buffer))
+									moveTank("red", "s", smoothBounceSpeed);
+								if (rotateShapeOk(temp, "r", tempAngle))
+									moveTank("red", "d", smoothBounceSpeed);
+							}
+							else if (collidesWithWalls(temp) != null && collidesWithWalls(temp).getOrientation().equals("V"))
+							{
+								if (moveShapeOk(temp, "b", rcos*buffer, rsin*buffer))
+									moveTank("red", "s", smoothBounceSpeed);
+								if (rotateShapeOk(temp, "l", tempAngle))
+									moveTank("red", "a", smoothBounceSpeed);
+							}
+						}
+						}
+						catch(Error e)
+						{
+							System.out.println("nope");
+							while (collidesWithWalls(temp) != null)
+							{
+								for (int i=0;i<4;i++)
+								{
+									temp.getVector2D(i).setX(temp.getVector2D(i).getX() + rcos * buffer);
+									temp.getVector2D(i).setY(temp.getVector2D(i).getY() + rsin * buffer);
+								}
+								vars.redTankX -= rcos;
+								vars.redTankY -= rsin;
+							}
+						}
+					}
+					break; 
+				case "s":
+//					for (int i=0;i<4;i++) {
+//						temp.getVector2D(i).setX(temp.getVector2D(i).getX() - rcos * buffer);
+//						temp.getVector2D(i).setY(temp.getVector2D(i).getY() - rsin * buffer);
+//					};
+					// pass "rcos * buffer" as speed
+					if (moveShapeOk(temp, "b", rcos*buffer, rsin*buffer))
+					{
+						vars.redTankX -= rcos;
+						vars.redTankY -= rsin;
+					}
+					else if (collidesWithWalls(temp) != null)
+					{
+						try
+						{
+						if (0 + 1 < vars.redDirection && vars.redDirection < 90 - 1 ||
+							 270  - 1 > vars.redDirection && vars.redDirection > 180 + 1)
+						{
+							if (collidesWithWalls(temp).getOrientation().equals("H"))
+							{
+								if (moveShapeOk(temp, "f", rcos*buffer, rsin*buffer))
+									moveTank("red", "w", smoothBounceSpeed);
+								if (rotateShapeOk(temp, "l", tempAngle))
+									moveTank("red", "a", smoothBounceSpeed);
+							}
+							else if (collidesWithWalls(temp).getOrientation().equals("V"))
+							{
+								if (moveShapeOk(temp, "f", rcos*buffer, rsin*buffer))
+									moveTank("red", "w", smoothBounceSpeed);
+								if (rotateShapeOk(temp, "r", tempAngle))
+									moveTank("red", "d", smoothBounceSpeed);
+							}
+						}
+						else if (vars.redDirection > 270 + 1 || 180 + 1 > vars.redDirection && vars.redDirection > 90 + 1)
+						{
+							if (collidesWithWalls(temp).getOrientation().equals("H"))
+							{
+								if (moveShapeOk(temp, "f", rcos*buffer, rsin*buffer))
+									moveTank("red", "w", smoothBounceSpeed);
+								if (rotateShapeOk(temp, "r", tempAngle))
+									moveTank("red", "d", smoothBounceSpeed);
+							}
+							else if (collidesWithWalls(temp).getOrientation().equals("V"))
+							{
+								if (moveShapeOk(temp, "f", rcos*buffer, rsin*buffer))
+									moveTank("red", "w", smoothBounceSpeed);
+								if (rotateShapeOk(temp, "l", tempAngle))
+									moveTank("red", "a", smoothBounceSpeed);
+							}
+						}
+						}
+						catch(Error e)
+						{
+							System.out.println("nope");
+							while(collidesWithWalls(temp) != null)
+							{
+								for (int i=0;i<4;i++) {
+									temp.getVector2D(i).setX(temp.getVector2D(i).getX() - rcos * buffer);
+									temp.getVector2D(i).setY(temp.getVector2D(i).getY() - rsin * buffer);
+								};
+								vars.redTankX += rcos;
+								vars.redTankY += rsin;
+							}
+						}
+					}
+					break; 
+				case "a":
+					temp = new myShape(vars.rul, vars.rur, vars.rdr, vars.rdl);
+					for (int i=0;i<4;i++)
+					{
+						temp.getVector2D(i).setPoint(rotatePoint(temp.getVector2D(i), findCenter(temp), Math.toRadians(-tempAngle)));
+					}
+					//replace
+					if (collidesWithWalls(temp) == null)
+					{
+						vars.redDirection -= DIRECTION_INCREMENTER * Math.sqrt(vars.redSpeedModifier);
+					}
+					else
+					{
+						int corner = findClosestCorner(temp, collidesWithWalls(temp));
+						String dr = collidesWithWalls(temp).getOrientation();
+						
+						//x accommodation
+						int xacc = 0, yacc = 0;
+						double tdr = vars.redDirection;
+						
+						System.out.println(corner + collidesWithWalls(temp).getOrientation());
+						// not quite, works sometimes 
+						if (dr.equals("H"))
+						{
+							if (0 <= tdr && tdr <= 180)
+								yacc = -1;
+							else
+								yacc = 1;
+							
+							if (corner == 0 || corner == 3)
+								yacc *= -1;
+						}
+						else if (dr.equals("V"))
+						{
+							if (90 <= tdr && tdr <= 270)
+								xacc = 1;
+							else
+								xacc = -1;
+							if (corner == 1 || corner == 1)
+								xacc *= -1;
+						}
+						
+						for (int i=0;i<4;i++)
+						{
+							temp.getVector2D(i).setPoint(new Vector2D(temp.getVector2D(i).getX() + smoothBounceSpeed*xacc, temp.getVector2D(i).getY() + smoothBounceSpeed*yacc));
+						}
+						if (collidesWithWalls(temp) == null)
+						{
+
+							// do some trig boyyyy
+							// the tank x/y will translate to one of the corners, depending on which angle/wall/corner
+							// ^^ not true usually; make a new point, translate, set x/y to it's x/y
+							
+							// doesn't quite work if the back corner collides with the wall
+							if (dr.equals("V"))
+								vars.redTankX += smoothBounceSpeed * xacc;
+							else if (dr.equals("H"))
+								vars.redTankY -= smoothBounceSpeed * yacc;
+							
+							vars.redDirection -= DIRECTION_INCREMENTER * Math.sqrt(vars.redSpeedModifier);
+							//sqrt arbitrary
+						}
+					}
+					break;
+				case "d":
+					temp = new myShape(vars.rul, vars.rur, vars.rdr, vars.rdl);
+					for (int i=0;i<4;i++)
+					{
+						temp.getVector2D(i).setPoint(rotatePoint(temp.getVector2D(i), c, Math.toRadians(tempAngle)));
+					}
+					if (collidesWithWalls(temp) == null)
+					{
+						vars.redDirection += DIRECTION_INCREMENTER * Math.sqrt(vars.redSpeedModifier);
+					}
+					else
+					{
+//						int corner = findClosestCorner(temp, collidesWithWalls(temp));
+//						String dr = collidesWithWalls(temp).getOrientation();
+//						
+//						//x accommodation
+//						int xacc = 0, yacc = 0;
+//						double tdr = vars.redDirection;
+//						if (dr.equals("H"))
+//						{
+//							if (0 <= tdr && tdr <= 180)
+//							{
+//								yacc = -1;
+//							}
+//							else
+//							{
+//								yacc = 1;
+//							}
+//							
+//							if (corner == 0 || corner == 3)
+//							{
+//								yacc *= -1;
+//							}
+//						}
+//						else if (dr.equals("V"))
+//						{
+//							if (90 < tdr && tdr <= 270)
+//							{
+//								xacc = -1;
+//							}
+//							else
+//							{
+//								xacc = 1;
+//							}
+//							if (corner == 0 || corner == 3)
+//							{
+//								xacc *= -1;
+//							}
+//						}
+//						
+//						for (int i=0;i<4;i++)
+//						{
+//							temp.getVector2D(i).setPoint(new Vector2D(temp.getVector2D(i).getX() + smoothBounceSpeed*xacc, temp.getVector2D(i).getX() + smoothBounceSpeed*yacc));
+//						}
+//						if (collidesWithWalls(temp) == null)
+//						{
+//							// do some trig boyyyy
+//							// the tank x/y will translate to one of the corners, depending on which angle/wall/corner
+//							// ^^ not true usually; make a new point, translate, set x/y to it's x/y
+//							// translate directly away from wall (!)
+//							
+//							// doesn't quite work if the back corner collides with the wall
+//							if (dr.equals("V"))
+//								vars.redTankX -= smoothBounceSpeed * xacc;
+//							else if (dr.equals("H"))
+//								vars.redTankY += smoothBounceSpeed * yacc;
+//							
+//							vars.redDirection += DIRECTION_INCREMENTER * Math.sqrt(vars.redSpeedModifier);
+//							//sqrt arbitrary
+//						}
+					}
+					break;
+			}
+			if (vars.redDirection > 360) vars.redDirection = 0;
+			if (vars.redDirection < 0)	vars.redDirection = 360;
+		}
+		if (t.equals("green"))
+		{
+			double gcos = Math.cos(Math.toRadians(vars.greenDirection)) * speed * vars.greenSpeedModifier;
+			double gsin = Math.sin(Math.toRadians(vars.greenDirection)) * speed * vars.greenSpeedModifier;
+			temp = new myShape(vars.gul, vars.gur, vars.gdr, vars.gdl);
+			c = findCenter(temp);
+			double tempAngle = vars.greenDirection/180 + DIRECTION_INCREMENTER + angleBuffer;
+			
+			switch(d)
+			{
+				case "up":
+					for (int i=0;i<4;i++) {
+						temp.getVector2D(i).setX(temp.getVector2D(i).getX() + gcos * buffer);
+						temp.getVector2D(i).setY(temp.getVector2D(i).getY() + gsin * buffer);
+					};
+					
+					if (!shapeCollision(vars.redTankShape, temp) && collidesWithWalls(temp) == null)
+					{
+						vars.greenTankX += gcos;
+						vars.greenTankY += gsin;
+					}
+					break; 
+				case "down":
+					for (int i=0;i<4;i++) {
+						temp.getVector2D(i).setX(temp.getVector2D(i).getX() - gcos * buffer);
+						temp.getVector2D(i).setY(temp.getVector2D(i).getY() - gsin * buffer);
+					};
+					
+					if (!shapeCollision(vars.redTankShape, temp) && collidesWithWalls(temp) == null)
+					{
+						vars.greenTankX -= gcos;
+						vars.greenTankY -= gsin;
+					}
+					break;
+				case "left":
+					for (int i=0;i<4;i++)
+					{
+						temp.getVector2D(i).setPoint(rotatePoint(temp.getVector2D(i), c, Math.toRadians(tempAngle)));
+					}
+					if (!shapeCollision(temp, vars.redTankShape) && collidesWithWalls(temp) == null)
+					{
+						vars.greenDirection -= DIRECTION_INCREMENTER * Math.sqrt(vars.greenSpeedModifier);
+					}
+					break;
+				case "right":
+					for (int i=0;i<4;i++)
+					{
+						temp.getVector2D(i).setPoint(rotatePoint(temp.getVector2D(i), c, Math.toRadians(tempAngle)));
+					}
+					if (!shapeCollision(temp, vars.redTankShape) && collidesWithWalls(temp) == null)
+					{
+						vars.greenDirection += DIRECTION_INCREMENTER * Math.sqrt(vars.greenSpeedModifier);
+					}
+			}
+			if (vars.greenDirection > 360) vars.greenDirection = 0;
+			if (vars.greenDirection < 0) vars.greenDirection = 360;
+		}
+	}
+	
+	public int findClosestCorner(myShape shape, Wall wall)
+	{
+		//return the corner of the first shape closest to the wall (second shape)
+		for (int i=0;i<4;i++)
+		{
+			//check collisions MVCC style for each vertex;
+			Vector2D temp = shape.getVector2D(i);
+			if (wall.getX() < temp.getX() && temp.getX() < wall.getX() + wall.getWidth() &&
+				 wall.getY() < temp.getY() && temp.getY() < wall.getY() + wall.getHeight())
+			{
+				return i;
+			}
+		}
+		return -1;
+	}
+	
+	public Vector2D findCenter(myShape shape)
+	{
+		double minX, maxX, minY, maxY, cx, cy;
+		
+		minX = Math.min(shape.getVector2D(0).getX(), Math.min(shape.getVector2D(1).getX(), Math.min(shape.getVector2D(2).getX(), shape.getVector2D(3).getX())));
+		maxX = Math.max(shape.getVector2D(0).getX(), Math.max(shape.getVector2D(1).getX(), Math.max(shape.getVector2D(2).getX(), shape.getVector2D(3).getX())));
+		
+		minY = Math.min(shape.getVector2D(0).getY(), Math.min(shape.getVector2D(1).getY(), Math.min(shape.getVector2D(2).getY(), shape.getVector2D(3).getY())));
+		maxY = Math.max(shape.getVector2D(0).getY(), Math.max(shape.getVector2D(1).getY(), Math.max(shape.getVector2D(2).getY(), shape.getVector2D(3).getY())));
+		
+		cx = (minX + maxX)/2;
+		cy = (minY + maxY)/2;
+		
+		return new Vector2D(cx, cy);
+	}
+	
+	public void shoot(String t)
+	{
+		double extra = 1.5;
+		if (t.equals("red"))
+		{
+			int rcx = (int) vars.redTankX + (vars.redTankImage.getWidth()/2);
+			int rcy = (int) vars.redTankY + (vars.redTankImage.getHeight()/2);
+			
+			bullets.add(new Bullet(rcx + Math.cos(Math.toRadians(vars.redDirection)) * (vars.redTankImage.getWidth()/2) * extra,
+										  rcy + Math.sin(Math.toRadians(vars.redDirection)) * (vars.redTankImage.getWidth()/2) * extra, 
+										  vars.redDirection, "red"));
+//			System.out.println("y: " + (rcy + Math.sin(Math.toRadians(vars.redDirection)) * (vars.redTankImage.getWidth()/2)));
+//			System.out.println("y2: " + bullets.get(0).getY());
+			if (!vars.redMM)
+				redFired = true;
+		}	
+		if (t.equals("green"))
+		{
+			int gcx = (int) vars.greenTankX + (vars.greenTankImage.getWidth(null)/2);
+			int gcy = (int) vars.greenTankY + (vars.greenTankImage.getHeight(null)/2);
+			
+			bullets.add(new Bullet(gcx + Math.cos(Math.toRadians(vars.greenDirection)) * (vars.greenTankImage.getWidth(null)/2) * extra,
+										  gcy + Math.sin(Math.toRadians(vars.greenDirection)) * (vars.greenTankImage.getWidth(null)/2) * extra, 
+										  vars.greenDirection, "green"));
+			if (!vars.greenMM)
+				greenFired = true;
+		}
+	}
+
+	public void checkCollisions()
+	{
+		findCorners();
+		//shapeCollision();
+	
+		vars.redTankShape = new myShape(vars.rul, vars.rur, vars.rdr, vars.rdl);
+		vars.greenTankShape = new myShape(vars.gul, vars.gur, vars.gdr, vars.gdl);
+		
+		for (int i=0;i<bullets.size();i++)
+		{
+			Bullet bullet = bullets.get(i);
+			myShape bulletShape = bullet.getShape();
+			
+			if (shapeCollision(bulletShape, vars.redTankShape))
+			{
+				bullet.setDead(true);
+				if (!tankHasPowerup("red", "invuln"))
+				{
+					vars.winner = "GREEN TANK";
+					addPoint("GREEN");
+				}
+			}
+			
+			if (shapeCollision(bulletShape, vars.greenTankShape))
+			{
+				bullet.setDead(true);
+				if (!tankHasPowerup("green", "invuln"))
+				{
+					vars.winner = "RED TANK";
+					addPoint("RED");
+				}
+			}
+			
+			Wall tempWall = collidesWithWalls(bullet.getShape());
+			if (tempWall != null)
+			{
+					bullet.bounce(tempWall.getOrientation());
+			}
+		}
+		
+		try
+		{
+			for (Powerup p : powerups)
+			{
+				if (shapeCollision(p.getShape(), vars.redTankShape))
+				{
+					vars.redPowerups.add(new tankPower(p.getType(), 800));
+					powerups.remove(p);
+				}
+				if (shapeCollision(p.getShape(), vars.greenTankShape))
+				{
+					vars.greenPowerups.add(new tankPower(p.getType(), 800));
+					powerups.remove(p);
+				}
+				
+			}
+		}
+		catch(ConcurrentModificationException e)
+		{
+		}
+	}
+	
+	public void addPoint(String winner)
+	{
+		switch(winner)
+		{
+			case "RED":
+				vars.redScore++;
+				break;
+			case "GREEN":
+				vars.greenScore++;
+				break;
+		}
+		
+		vars.winTextTime = 400;
+	}
+	
+	public void findCorners()
+	{
+		//red
+		double rcx = vars.redTankX + (vars.redTankImage.getWidth()/2);
+		double rcy = vars.redTankY + (vars.redTankImage.getHeight()/2);
+		
+		double rx =  vars.redTankX;
+		double ry =  vars.redTankY;
+		double rw =  vars.redTankImage.getWidth();
+		double rh =  vars.redTankImage.getHeight();
+		double ra =  Math.toRadians(vars.redDirection);
+		
+		vars.rul = new Vector2D(rx, ry);
+		vars.rur = new Vector2D(rx + rw, ry);
+		vars.rdr = new Vector2D(rx + rw, ry + rh);
+		vars.rdl = new Vector2D(rx, ry + rh);
+		
+		vars.redPoints.clear();
+		
+		vars.redPoints.add(vars.rul);
+		vars.redPoints.add(vars.rur);
+		vars.redPoints.add(vars.rdr);
+		vars.redPoints.add(vars.rdl);
+		
+		Vector2D rcenter = new Vector2D(rcx, rcy);
+		
+		for (int i = 0; i < vars.redPoints.size(); i++)
+		{
+			//rotatePoint(vars.redPoints.get(i), rcenter, ra);
+			vars.redPoints.get(i).setPoint(rotatePoint(vars.redPoints.get(i), rcenter, ra));
+		}
+		
+		//green
+		double gcx = vars.greenTankX + (vars.greenTankImage.getWidth(null)/2);
+		double gcy = vars.greenTankY + (vars.greenTankImage.getHeight(null)/2);
+		
+		double gx =  vars.greenTankX;
+		double gy =  vars.greenTankY;
+		double gw =  vars.greenTankImage.getWidth(null);
+		double gh =  vars.greenTankImage.getHeight(null);
+		double ga =  Math.toRadians(vars.greenDirection);
+		
+		vars.gul = new Vector2D(gx, gy);
+		vars.gur = new Vector2D(gx + gw, gy);
+		vars.gdl = new Vector2D(gx, gy + gh);
+		vars.gdr = new Vector2D(gx + gw, gy + gh);
+		
+		vars.greenPoints.clear();
+		
+		vars.greenPoints.add(vars.gul);
+		vars.greenPoints.add(vars.gur);
+		vars.greenPoints.add(vars.gdl);
+		vars.greenPoints.add(vars.gdr);
+		
+		Vector2D gcenter = new Vector2D(gcx, gcy);
+		
+		for (int i = 0; i < vars.greenPoints.size(); i++)
+		{
+			vars.greenPoints.get(i).setPoint(rotatePoint(vars.greenPoints.get(i), gcenter, ga));
+		}
+	}
+	
+	public Vector2D rotatePoint(Vector2D point, Vector2D center, double angle)
+	{
+		double tempX, tempY, newX, newY;
+		
+		tempX = point.getX() - center.getX();
+		tempY = point.getY() - center.getY();
+		
+		newX = tempX*Math.cos(angle) - tempY*Math.sin(angle);
+		newY = tempX*Math.sin(angle) + tempY*Math.cos(angle);
+		
+		point.setX(newX + center.getX());
+		point.setY(newY + center.getY());
+		
+		return new Vector2D(newX + center.getX(), newY + center.getY());
+	}
+	
+	boolean shapeCollision(myShape a, myShape b)
+	{
+	    for (int x=0; x<2; x++)
+	    {
+	        myShape polygon = (x==0) ? a : b;
+	       
+	        for (int i1=0; i1<4; i1++)
+	        {
+	            int   i2 = (i1 + 1) % 4;
+	            Vector2D p1 = polygon.getVector2D(i1);
+	            Vector2D p2 = polygon.getVector2D(i2);
+	           
+	            Vector2D normal = new Vector2D(p2.getY() - p1.getY(), p1.getX() - p2.getX());
+	           
+	            double minA = Double.MAX_VALUE;
+	            double maxA = Double.MIN_VALUE;
+	           
+	            for (int j = 0; j < 4; j++)
+	            {
+	            	Vector2D point = a.getVector2D(j);
+	               double projected = normal.getX() * point.getX() + normal.getY() * point.getY();
+	               
+	               if (projected < minA)
+	                   minA = projected;
+	               if (projected > maxA)
+	                   maxA = projected;
+	            }
+	           
+	            double minB = Double.MAX_VALUE;
+	            double maxB = Double.MIN_VALUE;
+	           
+	            for (int j = 0; j < 4; j++)
+	            {
+	            	Vector2D point = b.getVector2D(j);
+	                double projected = normal.getX() * point.getX() + normal.getY() * point.getY();
+	               
+	                if (projected < minB)
+	                    minB = projected;
+	                if (projected > maxB)
+	                    maxB = projected;
+	            }
+	           
+	            if (maxA < minB || maxB < minA)
+	                return false;
+	        }
+	    }
+	   
+	    return true;
+	}
+	
+	public int rand(int l, int h)
+	{
+		//inclusive
+		return (int)(Math.random()*((h+1)-l)) +l;
+	}
+	
+	public void keyPressed(KeyEvent event)
+	{
+		//65: a
+		//68: d
+		//83: s
+		//87: w
+		
+		//47: fZero
+		
+		int key = event.getKeyCode();
+
+		if (key == KeyEvent.VK_CONTROL) // CONTROL key
+			controlKeyPressed = true;
+
+		if ((key == 88) && (controlKeyPressed)) // CONTROL + X
+		{
+			gameFrame.dispose();
+			System.exit(0);
+		}
+		
+		if ((key == 78) && (controlKeyPressed))
+		{
+			reset();
+		}
+		
+		//red controls wasd, green arrows
+		
+		switch(key)
+		{
+			case 65:
+				pressedA = true;
+				break;
+			case 68:
+				pressedD = true;
+				break;
+			case 83:
+				pressedS = true;
+				break;
+			case 87:
+				pressedW = true;
+				break;
+			case KeyEvent.VK_UP:
+				pressedUp = true;
+				break;
+			case KeyEvent.VK_DOWN:
+				pressedDown = true;
+				break;
+			case KeyEvent.VK_LEFT:
+				pressedLeft = true;
+				break;
+			case KeyEvent.VK_RIGHT:
+				pressedRight = true;
+				break;
+			case KeyEvent.VK_SPACE:
+				pressedSpace = true;
+				break;
+			case KeyEvent.VK_NUMPAD0:
+				//47
+				pressedZero = true;
+				break;
+		}
+	}
+	
+	public void keyReleased(KeyEvent event)
+	{
+		int key = event.getKeyCode();
+
+		if (key == KeyEvent.VK_CONTROL) // CONTROL key
+			controlKeyPressed = false;
+		
+		switch(key)
+		{
+			case 65:
+				pressedA = false;
+				break;
+			case 68:
+				pressedD = false;
+				break;
+			case 83:
+				pressedS = false;
+				break;
+			case 87:
+				pressedW = false;
+				break;
+			case KeyEvent.VK_UP:
+				pressedUp = false;
+				break;
+			case KeyEvent.VK_DOWN:
+				pressedDown = false;
+				break;
+			case KeyEvent.VK_LEFT:
+				pressedLeft = false;
+				break;
+			case KeyEvent.VK_RIGHT:
+				pressedRight = false;
+				break;
+			case KeyEvent.VK_SPACE:
+				pressedSpace = false;
+				redFired = false;
+			case KeyEvent.VK_NUMPAD0:
+				pressedZero = false;
+				greenFired = false;
+				break;
+			case 27:
+				paused = !paused;
+				break;
+		}
+	}
+}

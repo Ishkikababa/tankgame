@@ -1,0 +1,124 @@
+package TankGame;
+
+import java.awt.Image;
+
+public class Bullet implements GlobalConst
+{
+	private double myX, myY, myWidth, myHeight; 
+	private int bouncesLeft;
+	private double theta;
+	private double xInc, yInc;
+	private boolean amded = false;
+	private String myOwner;
+	
+	public Bullet(double x, double y, double gtheta, String original)
+	{
+		myX = x;
+		myY = y;
+		myWidth = gameVar.missileImage.getWidth(null);
+		myHeight = gameVar.missileImage.getHeight(null);
+		bouncesLeft = NUM_BULLET_BOUNCES;
+		theta = gtheta;
+		xInc = BULLET_SPEED * Math.cos(Math.toRadians(theta));
+		yInc = BULLET_SPEED * Math.sin(Math.toRadians(theta));
+		myOwner = original;
+	}
+	
+	public void moveBullet()
+	{
+		myX += xInc;
+		myY += yInc;
+		
+		//System.out.println(yInc);
+		//System.out.println(myX + ", " + myY);
+		
+		if (myX+myWidth > FIELD_WIDTH || myX < 0)
+		{
+			//xInc *= -1;
+			bouncesLeft--;
+			amded = true;
+		}
+		
+		if (myY+myHeight > FIELD_HEIGHT || myY < 0)
+		{
+			//yInc *= -1;
+			bouncesLeft--;
+			amded = true;
+		}
+	}
+	
+	public void bounce(String d)
+	{
+		bouncesLeft--;
+		if (d.equals("V"))
+		{
+			xInc *= -1;
+		}
+		else if (d.equals("H"))
+		{
+			yInc *= -1;
+		}
+		else
+		{
+			xInc *= -1;
+			yInc *= -1;
+		}
+		
+		if (bouncesLeft < 0)
+		{
+			amded = true;
+		}
+	}
+	
+	public double getX()
+	{
+		return myX;
+	}
+	
+	public double getY()
+	{
+		return myY;
+	}
+	
+	public double getWidth()
+	{
+		return myWidth;
+	}
+	
+	public double getHeight()
+	{
+		return myHeight;
+	}
+	
+	public boolean isDead()
+	{
+		return amded;
+	}
+	
+	public void setDead(boolean s)
+	{
+		amded = s;
+	}
+	
+	public myShape getShape()
+	{
+		Vector2D UR = new Vector2D(myX + myWidth, myY);
+		Vector2D UL = new Vector2D(myX, myY);
+		Vector2D DR = new Vector2D(myX + myWidth, myY + myHeight);
+		Vector2D DL = new Vector2D(myX, myY + myHeight);
+		
+		return new myShape(UR, UL, DR, DL);
+	}
+	
+	public String getOwner()
+	{
+		return myOwner;
+	}
+	
+	public Image getImage()
+	{
+		return gameVar.bulletImage;
+	}
+
+	
+}
