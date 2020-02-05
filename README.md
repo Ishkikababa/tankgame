@@ -1,2 +1,2 @@
 # tankgame
-Created by Aaron Swoiskin for an independant projects class in high school, 2016
+Created by Aaron Swoiskin for an independant projects class, Redwood High School, 2016
